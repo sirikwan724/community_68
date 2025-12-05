@@ -7,14 +7,17 @@ from rest_framework import status
 from .models import Report, ReportNote, RequestHelp
 from .serializers import ReportSerializer, ReportNoteSerializer, RequestHelpSerializer
 
+
+# =====================================================
 # 1) USER ส่งรายงาน (CREATE)
+# =====================================================
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_report(request):
-    
+
     data = request.data.copy()
 
-    # ดึงข้อมูลจากบัญชีผู้ใช้ โดยไม่ต้องให้ Vue ส่งมา
+    # เติมข้อมูลผู้ใช้ให้อัตโนมัติ
     data["user"] = request.user.id
     data["fullname"] = request.user.full_name
     data["phone"] = request.user.phone
@@ -22,15 +25,16 @@ def create_report(request):
     serializer = ReportSerializer(data=data)
 
     if serializer.is_valid():
-        serializer.save(user=request.user)  # บันทึก user_id
+        serializer.save(user=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-     
+
     print("CREATE REPORT ERROR:", serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-# 2) USER: ดูรายงาน + แก้ไขได้เฉพาะสถานะ pending
+# =====================================================
+# 2) USER: ดู / แก้ไข รายงาน
+# =====================================================
 @api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
 def report_detail(request, pk):
@@ -61,8 +65,9 @@ def report_detail(request, pk):
     return Response(serializer.errors, status=400)
 
 
-
+# =====================================================
 # 3) ADMIN: ดูรายงานทั้งหมด
+# =====================================================
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_list_reports(request):
@@ -73,7 +78,9 @@ def admin_list_reports(request):
     return Response(ReportSerializer(reports, many=True).data)
 
 
-# 4) USER: ดูรายงานของตัวเอง
+# =====================================================
+# 4) USER ดูรายงานตัวเอง
+# =====================================================
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_reports(request):
@@ -81,8 +88,9 @@ def my_reports(request):
     return Response(ReportSerializer(reports, many=True).data)
 
 
-# 5) USER: ยกเลิกรายงาน (ได้เฉพาะ pending)
-
+# =====================================================
+# 5) USER ยกเลิกรายงาน
+# =====================================================
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def report_cancel(request, pk):
@@ -98,9 +106,9 @@ def report_cancel(request, pk):
     return Response({"message": "ยกเลิกคำร้องสำเร็จ"}, status=200)
 
 
-# ADMIN ACTIONS
-
-# 6) ADMIN: รับเรื่อง → status = processing
+# =====================================================
+# 6) ADMIN รับเรื่อง → processing
+# =====================================================
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def report_accept(request, pk):
@@ -119,7 +127,9 @@ def report_accept(request, pk):
     return Response({"message": "รับเรื่องแล้ว"}, status=200)
 
 
-# 7) ADMIN: เพิ่มโน้ตในรายงาน (อัปเดตงาน)
+# =====================================================
+# 7) ADMIN เพิ่มโน้ตในรายงาน
+# =====================================================
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def report_add_note(request, pk):
@@ -147,7 +157,9 @@ def report_add_note(request, pk):
     }, status=201)
 
 
-# 8) ADMIN: แก้ไขแล้วเสร็จ → resolved
+# =====================================================
+# 8) ADMIN แก้ไขเสร็จแล้ว → resolved
+# =====================================================
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def report_done(request, pk):
@@ -166,7 +178,9 @@ def report_done(request, pk):
     return Response({"message": "อัปเดตสถานะแล้วเสร็จ"}, status=200)
 
 
-# 9) ADMIN: Rollback กลับไปเป็น processing
+# =====================================================
+# 9) ADMIN Rollback → processing
+# =====================================================
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def report_rollback(request, pk):
@@ -184,40 +198,48 @@ def report_rollback(request, pk):
 
     return Response({"message": "ย้อนกลับสถานะเป็นกำลังดำเนินการ"}, status=200)
 
+
+# =====================================================
+# ADMIN: แสดงรายงานตามสถานะ
+# =====================================================
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_reports_pending(request):
-
     if request.user.role != "admin":
         return Response({"detail": "คุณไม่มีสิทธิ์"}, status=403)
 
     reports = Report.objects.filter(status="pending").order_by("-created_at")
     return Response(ReportSerializer(reports, many=True).data)
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_reports_processing(request):
-
     if request.user.role != "admin":
         return Response({"detail": "คุณไม่มีสิทธิ์"}, status=403)
 
     reports = Report.objects.filter(status="processing").order_by("-created_at")
     return Response(ReportSerializer(reports, many=True).data)
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_reports_resolved(request):
-
     if request.user.role != "admin":
         return Response({"detail": "คุณไม่มีสิทธิ์"}, status=403)
 
     reports = Report.objects.filter(status="resolved").order_by("-created_at")
     return Response(ReportSerializer(reports, many=True).data)
 
+
+# =====================================================
+# 10) USER ส่งคำขอความอนุเคราะห์
+# =====================================================
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_request_help(request):
     print("DEBUG DATA:", request.data)
+
     data = request.data.copy()
     data["user"] = request.user.id
 
@@ -225,16 +247,33 @@ def create_request_help(request):
     if serializer.is_valid():
         serializer.save(user=request.user)
         return Response(serializer.data, status=201)
-    
+
     print("DEBUG ERROR:", serializer.errors)
     return Response(serializer.errors, status=400)
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_my_request_help(request, pk):
+    try:
+        req = RequestHelp.objects.get(pk=pk, user=request.user)
+    except RequestHelp.DoesNotExist:
+        return Response({"detail": "ไม่พบคำขอนี้"}, status=404)
+
+    return Response(RequestHelpSerializer(req).data)
+
+# =====================================================
+# 11) USER ดูคำขอของตัวเอง
+# =====================================================
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_request_help(request):
     help_list = RequestHelp.objects.filter(user=request.user).order_by("-created_at")
     return Response(RequestHelpSerializer(help_list, many=True).data)
 
+
+# =====================================================
+# 12) ADMIN ดูคำขอทั้งหมด
+# =====================================================
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_request_help(request):
@@ -244,9 +283,14 @@ def admin_request_help(request):
     helps = RequestHelp.objects.all().order_by("-created_at")
     return Response(RequestHelpSerializer(helps, many=True).data)
 
+
+# =====================================================
+# 13) ADMIN อนุมัติคำขอ
+# =====================================================
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def request_help_approve(request, pk):
+
     if request.user.role != "admin":
         return Response({"detail": "ไม่มีสิทธิ์"}, status=403)
 
@@ -256,19 +300,24 @@ def request_help_approve(request, pk):
 
     return Response({"message": "อนุมัติแล้ว"})
 
+
+# =====================================================
+# 14) USER แก้ไขคำขอของตัวเอง
+# =====================================================
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def update_my_request(request, pk):
+
     try:
         req = RequestHelp.objects.get(pk=pk, user=request.user)
     except RequestHelp.DoesNotExist:
         return Response({"detail": "ไม่พบคำขอนี้"}, status=404)
 
-    # ห้ามแก้ไขถ้าอนุมัติแล้วหรือปฏิเสธแล้ว
     if req.status in ["approved", "rejected", "done"]:
         return Response({"detail": "ไม่สามารถแก้ไขคำขอนี้ได้"}, status=400)
 
     serializer = RequestHelpSerializer(req, data=request.data, partial=True)
+
     if serializer.is_valid():
         serializer.save()
         return Response({"message": "แก้ไขคำขอสำเร็จ", "data": serializer.data}, status=200)
@@ -276,17 +325,38 @@ def update_my_request(request, pk):
     return Response(serializer.errors, status=400)
 
 
+# =====================================================
+# 15) USER ยกเลิกคำขอของตัวเอง  ← (เพิ่มใหม่!!)
+# =====================================================
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def cancel_my_request(request, pk):
+
+    try:
+        req = RequestHelp.objects.get(pk=pk, user=request.user)
+    except RequestHelp.DoesNotExist:
+        return Response({"detail": "ไม่พบคำขอนี้"}, status=404)
+
+    if req.status != "pending":
+        return Response({"detail": "คำขอนี้ไม่สามารถยกเลิกได้"}, status=400)
+
+    req.status = "rejected"
+    req.save()
+
+    return Response({"message": "ยกเลิกคำขอแล้ว"}, status=200)
+
+
+# =====================================================
+# 16) ADMIN สถิติระบบ
+# =====================================================
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_statistics(request):
 
-    # อนุญาตเฉพาะ admin
     if request.user.role != "admin":
         return Response({"detail": "ไม่มีสิทธิ์"}, status=403)
 
-    # -----------------------------
-    # 1) สถิติรายงานร้องเรียน (Report)
-    # -----------------------------
+    # รายงานร้องเรียน
     report_qs = (
         Report.objects.values("category")
         .annotate(total=Count("id"))
@@ -297,16 +367,13 @@ def admin_statistics(request):
         item["category"]: item["total"] for item in report_qs
     }
 
-    # -----------------------------
-    # 2) สถิติคำขอความอนุเคราะห์ (RequestHelp)
-    # -----------------------------
+    # คำขอความอนุเคราะห์
     request_qs = (
         RequestHelp.objects.values("request_type")
         .annotate(total=Count("id"))
         .order_by("request_type")
     )
 
-    # ถ้า request_type = None → แปลงเป็น "ไม่ระบุ"
     requests_by_type = {
         (item["request_type"] or "ไม่ระบุ"): item["total"]
         for item in request_qs
@@ -317,20 +384,23 @@ def admin_statistics(request):
         "requests_by_type": requests_by_type
     })
 
+
+# =====================================================
+# 17) ADMIN สถิติ (แบบ fix category)
+# =====================================================
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_stats(request):
+
     if request.user.role != "admin":
         return Response({"detail": "ไม่มีสิทธิ์"}, status=403)
 
-    # รายงานร้องเรียน (Report)
     categories = ["ไฟฟ้า", "น้ำ", "ถนน", "บุคคล", "เสียง", "กลิ่น"]
     reports_by_category = {
         c: Report.objects.filter(category=c).count()
         for c in categories
     }
 
-    # คำขอความอนุเคราะห์ (RequestHelp)
     types = ["เสียง", "ปิดทาง", "ทั้งสองอย่าง", "อื่นๆ"]
     requests_by_type = {
         t: RequestHelp.objects.filter(request_type=t).count()

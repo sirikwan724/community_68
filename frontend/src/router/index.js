@@ -115,6 +115,11 @@ const router = createRouter({
           meta: { requiresAuth: true },
         },
         {
+          path: "edit-request/:id",
+          component: () => import("../pages/EditRequest.vue"),
+          meta: { requiresAuth: true },
+        },
+        {
           path: "public-services",
           component: () => import("../pages/publicservice/PublicServiceList.vue")
         },

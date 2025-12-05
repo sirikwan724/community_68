@@ -6,12 +6,12 @@ import { useRoute, useRouter } from "vue-router";
 const route = useRoute();
 const router = useRouter();
 
+const id = route.params.id;
+
 const form = ref({
   request_type: "",
   detail: "",
-  area: "",
-  start_datetime: "",
-  end_datetime: "",
+  area: ""
 });
 
 const loading = ref(true);
@@ -20,15 +20,30 @@ const error = ref("");
 onMounted(async () => {
   try {
     const token = localStorage.getItem("access");
+
+    // ✔ โหลดเฉพาะของ user ทั้งหมด
     const res = await axios.get(
-      `http://localhost:8000/api/help/my/${route.params.id}/`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
+      "http://localhost:8000/api/reports/help/my/",
+      { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    form.value = res.data;
+    // ✔ หา record ที่ต้องการแก้ไข
+    const item = res.data.find(r => r.id == id);
+
+    if (!item) {
+      error.value = "ไม่พบข้อมูลคำขอ";
+      return;
+    }
+
+    // ✔ ตั้งค่า form
+    form.value = {
+      request_type: item.request_type,
+      detail: item.detail,
+      area: item.area
+    };
+
   } catch (err) {
+    console.error(err);
     error.value = "โหลดข้อมูลไม่สำเร็จ";
   } finally {
     loading.value = false;
@@ -39,17 +54,18 @@ const updateRequest = async () => {
   const token = localStorage.getItem("access");
 
   try {
+    // ✔ URL ที่ถูกต้อง
     await axios.patch(
-      `http://localhost:8000/api/help/my/${route.params.id}/update/`,
+      `http://localhost:8000/api/reports/help/my/${id}/update/`,
       form.value,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
+      { headers: { Authorization: `Bearer ${token}` } }
     );
 
     alert("แก้ไขคำขอสำเร็จ");
     router.push("/my-history");
+
   } catch (e) {
+    console.error(e);
     alert("ไม่สามารถแก้ไขได้");
   }
 };
@@ -60,6 +76,7 @@ const updateRequest = async () => {
     <h2 class="text-xl font-bold mb-4">แก้ไขคำขอความอนุเคราะห์</h2>
 
     <div v-if="loading">กำลังโหลดข้อมูล...</div>
+    <div v-if="error" class="text-red-500">{{ error }}</div>
 
     <form v-else @submit.prevent="updateRequest" class="space-y-3">
 

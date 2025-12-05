@@ -1,19 +1,20 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import axios from "axios";
+import { useRouter } from "vue-router";
 
-const activeTab = ref("reports"); 
-// reports | requests | all
+const activeTab = ref("reports");
+const router = useRouter();
 
 const reports = ref([]);
 const requests = ref([]);
 const merged = ref([]);
 
-const token = localStorage.getItem("access");
+const getToken = () => localStorage.getItem("access");
 
-// -------------------------------------------------------
-// FORMAT วันที่
-// -------------------------------------------------------
+// ---------------------------
+// Format วันที่
+// ---------------------------
 const formatDT = (dt) => {
   return new Date(dt).toLocaleString("th-TH", {
     dateStyle: "long",
@@ -21,13 +22,13 @@ const formatDT = (dt) => {
   });
 };
 
-// -------------------------------------------------------
+// ---------------------------
 // โหลดรายงานปัญหา (Report)
-// -------------------------------------------------------
+// ---------------------------
 const loadReports = async () => {
   try {
     const res = await axios.get("http://localhost:8000/api/reports/my/", {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${getToken()}` },
     });
 
     reports.value = res.data.map((i) => ({
@@ -43,22 +44,20 @@ const loadReports = async () => {
   }
 };
 
-// -------------------------------------------------------
-// โหลดคำขอความอนุเคราะห์ (Request Help)
-// -------------------------------------------------------
+// ---------------------------
+// โหลดคำขอความอนุเคราะห์
+// ---------------------------
 const loadRequests = async () => {
   try {
     const res = await axios.get("http://localhost:8000/api/reports/help/my/", {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${getToken()}` },
     });
-
-    console.log("DATA FROM API:", res.data); 
 
     requests.value = res.data.map((i) => ({
       id: i.id,
       type: "request",
-      title: i.request_type ?? "(ไม่พบประเภท)",
-      detail: i.detail ?? "(ไม่มีรายละเอียด)",
+      title: i.request_type,
+      detail: i.detail,
       status: i.status,
       created_at: i.created_at,
     }));
@@ -67,26 +66,27 @@ const loadRequests = async () => {
   }
 };
 
-
-// -------------------------------------------------------
+// ---------------------------
 // รวมข้อมูลทั้งหมด
-// -------------------------------------------------------
+// ---------------------------
 const mergeAll = () => {
   merged.value = [...reports.value, ...requests.value].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
 };
 
-// -------------------------------------------------------
-// ยกเลิกรายงาน (เฉพาะ Report)
-// -------------------------------------------------------
+// ---------------------------
+// ยกเลิกรายงานปัญหา
+// ---------------------------
 const cancelReport = async (id) => {
   if (!confirm("ต้องการยกเลิกคำร้องนี้หรือไม่?")) return;
 
   try {
     await axios.delete(
       `http://localhost:8000/api/reports/${id}/cancel/`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      }
     );
 
     alert("ยกเลิกคำร้องสำเร็จ");
@@ -97,9 +97,30 @@ const cancelReport = async (id) => {
   }
 };
 
-// -------------------------------------------------------
-// เมื่อเปิดหน้าให้โหลดข้อมูล
-// -------------------------------------------------------
+// ---------------------------
+// ยกเลิกคำขอความอนุเคราะห์
+// ---------------------------
+const cancelRequest = async (id) => {
+  if (!confirm("ต้องการยกเลิกคำขอนี้หรือไม่?")) return;
+
+  try {
+    await axios.patch(
+      `http://localhost:8000/api/reports/help/my/${id}/cancel/`,
+      {},
+      { headers: { Authorization: `Bearer ${getToken()}` } }
+    );
+
+    alert("ยกเลิกคำขอเรียบร้อยแล้ว!");
+    loadRequests();
+  } catch (err) {
+    console.error(err);
+    alert("ไม่สามารถยกเลิกคำขอได้");
+  }
+};
+
+// ---------------------------
+// โหลดข้อมูลเมื่อเปิดหน้า
+// ---------------------------
 onMounted(async () => {
   await loadReports();
   await loadRequests();
@@ -242,6 +263,22 @@ onMounted(async () => {
           <p class="text-sm text-gray-400 mt-1">
             ส่งเมื่อ: {{ formatDT(item.created_at) }}
           </p>
+          <!-- ปุ่มแก้ไข & ยกเลิก -->
+          <div v-if="item.status === 'pending'" class="mt-4 flex gap-3">
+            <button
+              @click="router.push(`/edit-request/${item.id}`)"
+              class="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+            >
+              แก้ไข
+            </button>
+
+            <button
+              @click="cancelRequest(item.id)"
+              class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+            >
+              ยกเลิก
+            </button>
+          </div>
         </div>
       </div>
 
