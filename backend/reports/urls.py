@@ -44,4 +44,19 @@ urlpatterns = [
     # Statistics
     # -------------------------
     path("admin/stats/", views.admin_stats),  
+
+    # ===============================
+    #  APPOINTMENTS
+    # ===============================
+    # USER
+    path("appointments/create/", views.create_appointment),
+    path("appointments/my/", views.my_appointments),
+    path("appointments/my/<int:pk>/cancel/", views.cancel_appointment),
+
+    # ADMIN
+    path("appointments/admin/", views.admin_appointments),
+    path("appointments/<int:pk>/approve/", views.approve_appointment),
+    path("appointments/<int:pk>/reject/", views.reject_appointment),
+    path("appointments/<int:pk>/note/", views.add_appointment_note),
+
 ]

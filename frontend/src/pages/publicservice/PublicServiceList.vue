@@ -1,27 +1,61 @@
 <template>
   <div class="container mx-auto p-6">
 
-    <!-- ปุ่มกลับ -->
+    <!-- 🔹 ปุ่มกลับหน้าหลัก -->
     <div class="mb-4">
       <router-link
         to="/"
         class="inline-block bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
       >
-         กลับหน้าหลัก
+        กลับหน้าหลัก
       </router-link>
     </div>
 
+    <!-- 🔹 หัวข้อ -->
     <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
-       บริการสาธารณะของหมู่บ้าน
+      บริการสาธารณะของหมู่บ้าน
     </h2>
 
-    <div v-if="services.length === 0" class="text-gray-500 text-center mt-10">
-      ยังไม่มีบริการสาธารณะ
+    <!-- 🔹 ปุ่มฟิลเตอร์ -->
+    <div class="flex gap-2 mb-6">
+      <button
+        @click="filterType = 'all'"
+        :class="filterType === 'all' ? activeClass : inactiveClass"
+      >
+        ทั้งหมด
+      </button>
+
+      <button
+        @click="filterType = 'washer'"
+        :class="filterType === 'washer' ? activeClass : inactiveClass"
+      >
+        ตู้ซักผ้า
+      </button>
+
+      <button
+        @click="filterType = 'water'"
+        :class="filterType === 'water' ? activeClass : inactiveClass"
+      >
+        ตู้กดน้ำ
+      </button>
+
+      <button
+        @click="filterType = 'other'"
+        :class="filterType === 'other' ? activeClass : inactiveClass"
+      >
+        อื่น ๆ
+      </button>
     </div>
 
+    <!-- 🔹 ถ้าไม่มีบริการ -->
+    <div v-if="filteredServices.length === 0" class="text-gray-500 text-center mt-10">
+      ไม่มีบริการตามเงื่อนไข
+    </div>
+
+    <!-- 🔹 รายการบริการ -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <div
-        v-for="item in services"
+        v-for="item in filteredServices"
         :key="item.id"
         @click="goDetail(item.id)"
         class="bg-white border shadow-sm rounded-lg p-4 cursor-pointer hover:shadow-lg transition"
@@ -35,7 +69,7 @@
         <h3 class="font-semibold text-lg mt-2">{{ item.name }}</h3>
         <p class="text-sm text-gray-600">{{ item.location }}</p>
 
-        <!-- สถานะ -->
+        <!-- 🔹 สถานะ -->
         <span
           class="inline-block mt-2 px-2 py-1 text-xs rounded-full"
           :class="{
@@ -59,13 +93,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
+
+// ข้อมูลทั้งหมด
 const services = ref([]);
 
+// ฟิลเตอร์
+const filterType = ref("all");
+
+// โหลดข้อมูล
 onMounted(async () => {
   try {
     const res = await axios.get("http://localhost:8000/api/services/");
@@ -75,7 +115,22 @@ onMounted(async () => {
   }
 });
 
+// คำนวณรายการตามฟิลเตอร์
+const filteredServices = computed(() => {
+  if (filterType.value === "all") return services.value;
+  return services.value.filter((s) => s.category === filterType.value);
+});
+
+// ไปหน้าแสดงรายละเอียด
 const goDetail = (id) => {
   router.push(`/public-services/${id}`);
 };
+
+// class ปุ่มฟิลเตอร์
+const activeClass = "px-4 py-2 rounded bg-blue-600 text-white";
+const inactiveClass = "px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300";
 </script>
+
+<style scoped>
+/* สามารถเพิ่ม styling ตรงนี้ได้ */
+</style>

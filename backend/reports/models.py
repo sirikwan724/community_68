@@ -77,3 +77,43 @@ class RequestHelp(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class Appointment(models.Model):
+    MEET_WITH_CHOICES = [
+        ("headman", "ผู้ใหญ่บ้าน"),
+        ("assistant_headman", "ผู้ช่วยผู้ใหญ่บ้าน"),
+    ]
+
+    PLACE_CHOICES = [
+        ("village_hall", "ศาลากลางหมู่บ้าน"),
+        ("temple", "วัด"),
+        ("headman_office", "สถานที่ทำการผู้ใหญ่บ้าน"),
+        ("learning_center", "ศูนย์ให้ความรู้หมู่บ้าน"),
+    ]
+
+    STATUS_CHOICES = [
+        ("pending", "รอดำเนินการ"),
+        ("approved", "ยืนยันนัดหมาย"),
+        ("canceled", "ยกเลิกโดยผู้ใช้"),
+        ("rejected", "ผู้ใหญ่บ้านปฏิเสธ"),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    meet_with = models.CharField(max_length=30, choices=MEET_WITH_CHOICES)
+    meeting_place = models.CharField(max_length=30, choices=PLACE_CHOICES)
+
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    reason = models.TextField()
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    admin_note = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Appointment by {self.user} on {self.date}"

@@ -62,9 +62,8 @@ const router = createRouter({
         { path: "services", component: () => import("../pages/admin/AdminServiceList.vue"),},
         { path: "services/create", component: () => import("../pages/admin/AdminServiceCreate.vue"),},
         { path: "services/:id/edit", component: () => import("../pages/admin/AdminServiceEdit.vue"),},
-        { path: "/admin/stats", name: "AdminStats", component: AdminStats, meta: { requiresAuth: true, adminOnly: true }}
-
-
+        { path: "/admin/stats", name: "AdminStats", component: AdminStats, meta: { requiresAuth: true, adminOnly: true }},
+        { path: "/admin/appointments", name: "admin-appointments", component: () => import("../pages/admin/AdminAppointmentList.vue"),},
       ],
     },
 
@@ -128,7 +127,18 @@ const router = createRouter({
           component: () => import("../pages/publicservice/PublicServiceDetail.vue"),
           meta: { requiresAuth: true },
         },
-
+        {
+          path: "/appointment/create",
+          component: () => import("../pages/AppointmentForm.vue"),
+        },
+        {
+          path: "/appointment/my",
+          component: () => import("../pages/MyAppointments.vue"),
+        },
+        {
+          path: "/appointments/edit/:id",
+          component: () => import("../pages/EditAppointment.vue"),
+        },
       ],
     },
 

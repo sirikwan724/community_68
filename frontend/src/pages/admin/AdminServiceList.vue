@@ -1,17 +1,38 @@
 <template>
   <div class="p-6">
 
-    <!-- ปุ่มกลับหน้าแดชบอร์ด -->
-    <div class="mb-4">
-      <router-link
-        to="/admin/dashboard"
-        class="inline-block bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
-      >
-       กลับหน้าหลัก
-      </router-link>
-    </div>
+    <!-- ปุ่มกลับ -->
+    <router-link
+      to="/admin/dashboard"
+      class="inline-block bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+    >
+      กลับหน้าหลัก
+    </router-link>
 
-    <h1 class="text-2xl font-bold mb-6">บริหารจัดการบริการสาธารณะ</h1>
+    <h1 class="text-2xl font-bold mt-4 mb-6">บริหารจัดการบริการสาธารณะ</h1>
+
+    <!-- ปุ่มฟิลเตอร์ -->
+    <div class="flex gap-2 mb-4">
+      <button
+        @click="filterType = 'all'"
+        :class="filterType === 'all' ? active : inactive"
+      >ทั้งหมด</button>
+
+      <button
+        @click="filterType = 'washer'"
+        :class="filterType === 'washer' ? active : inactive"
+      >ตู้ซักผ้า</button>
+
+      <button
+        @click="filterType = 'water'"
+        :class="filterType === 'water' ? active : inactive"
+      >ตู้กดน้ำ</button>
+
+      <button
+        @click="filterType = 'other'"
+        :class="filterType === 'other' ? active : inactive"
+      >อื่น ๆ</button>
+    </div>
 
     <!-- ปุ่มเพิ่ม -->
     <router-link
@@ -21,15 +42,15 @@
       ➕ เพิ่มบริการใหม่
     </router-link>
 
-    <!-- ไม่มีข้อมูล -->
-    <div v-if="services.length === 0" class="mt-10 text-gray-500">
-      ยังไม่มีบริการสาธารณะ
+    <!-- ถ้าไม่มีรายการ -->
+    <div v-if="filteredServices.length === 0" class="mt-10 text-gray-500">
+      ไม่มีบริการที่พบตามเงื่อนไข
     </div>
 
-    <!-- ตารางข้อมูล -->
+    <!-- รายการบริการ -->
     <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <div
-        v-for="item in services"
+        v-for="item in filteredServices"
         :key="item.id"
         class="bg-white shadow border rounded-lg p-4 relative"
       >
@@ -38,30 +59,21 @@
           ⋮
         </div>
 
-        <!-- เมนูดรอปดาวน์ -->
+        <!-- เมนูแก้ไข/ลบ -->
         <div
           v-if="menuOpen === item.id"
           class="absolute right-3 top-8 bg-white border rounded shadow-lg z-10"
         >
-          <div
-            class="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-            @click="editService(item.id)"
-          >
-             แก้ไข
+          <div @click="editService(item.id)" class="px-4 py-2 hover:bg-gray-100 cursor-pointer">
+            แก้ไข
           </div>
-          <div
-            class="px-4 py-2 hover:bg-red-100 cursor-pointer text-red-600"
-            @click="deleteService(item.id)"
-          >
-             ลบ
+          <div @click="deleteService(item.id)" class="px-4 py-2 hover:bg-red-100 cursor-pointer text-red-600">
+            ลบ
           </div>
         </div>
 
-        <img
-          v-if="item.image"
-          :src="item.image"
-          class="w-full h-40 rounded object-cover"
-        />
+        <!-- รูป -->
+        <img v-if="item.image" :src="item.image" class="w-full h-40 rounded object-cover" />
 
         <h2 class="font-bold text-lg mt-2">{{ item.name }}</h2>
         <p class="text-sm text-gray-600">{{ item.location }}</p>
@@ -88,13 +100,35 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
 
 const services = ref([]);
 const menuOpen = ref(null);
 const router = useRouter();
+
+const filterType = ref("all"); // <-- ค่า default
+
+// โหลดข้อมูล
+onMounted(async () => {
+  try {
+    const res = await axios.get("http://localhost:8000/api/services/");
+    services.value = res.data;
+    console.log("SERVICES:", services.value);
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+// ฟิลเตอร์รายการตาม category
+const filteredServices = computed(() => {
+  if (filterType.value === "all") return services.value;
+
+  return services.value.filter(
+    (s) => s.category === filterType.value  // << ใช้ category ที่มาจาก API
+  );
+});
 
 const openMenu = (id) => {
   menuOpen.value = menuOpen.value === id ? null : id;
@@ -115,13 +149,4 @@ const deleteService = async (id) => {
     console.error(err);
   }
 };
-
-onMounted(async () => {
-  try {
-    const res = await axios.get("http://localhost:8000/api/services/");
-    services.value = res.data;
-  } catch (err) {
-    console.error(err);
-  }
-});
 </script>

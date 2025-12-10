@@ -9,8 +9,11 @@ const router = useRouter();
 const reports = ref([]);
 const requests = ref([]);
 const merged = ref([]);
+const appointments = ref([]);
 
+// ดึง Token แบบไม่ Error
 const getToken = () => localStorage.getItem("access");
+const token = getToken();
 
 // ---------------------------
 // Format วันที่
@@ -67,6 +70,21 @@ const loadRequests = async () => {
 };
 
 // ---------------------------
+// โหลดนัดหมาย
+// ---------------------------
+const loadAppointments = async () => {
+  try {
+    const res = await axios.get(
+      "http://localhost:8000/api/appointments/my/",
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    appointments.value = res.data;
+  } catch (err) {
+    console.error("LOAD APPOINTMENTS ERROR:", err);
+  }
+};
+
+// ---------------------------
 // รวมข้อมูลทั้งหมด
 // ---------------------------
 const mergeAll = () => {
@@ -76,18 +94,15 @@ const mergeAll = () => {
 };
 
 // ---------------------------
-// ยกเลิกรายงานปัญหา
+// ยกเลิกรายงาน
 // ---------------------------
 const cancelReport = async (id) => {
   if (!confirm("ต้องการยกเลิกคำร้องนี้หรือไม่?")) return;
 
   try {
-    await axios.delete(
-      `http://localhost:8000/api/reports/${id}/cancel/`,
-      {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      }
-    );
+    await axios.delete(`http://localhost:8000/api/reports/${id}/cancel/`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
 
     alert("ยกเลิกคำร้องสำเร็จ");
     loadReports();
@@ -119,11 +134,33 @@ const cancelRequest = async (id) => {
 };
 
 // ---------------------------
+// ยกเลิกนัดหมาย
+// ---------------------------
+const cancelAppointment = async (id) => {
+  if (!confirm("ต้องการยกเลิกนัดหมายนี้หรือไม่?")) return;
+
+  try {
+    await axios.patch(
+      `http://localhost:8000/api/appointments/${id}/cancel/`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    alert("ยกเลิกสำเร็จ");
+    loadAppointments();
+  } catch (err) {
+    console.error(err);
+    alert("เกิดข้อผิดพลาด");
+  }
+};
+
+// ---------------------------
 // โหลดข้อมูลเมื่อเปิดหน้า
 // ---------------------------
 onMounted(async () => {
   await loadReports();
   await loadRequests();
+  await loadAppointments();
   mergeAll();
 });
 </script>
@@ -166,6 +203,16 @@ onMounted(async () => {
       </button>
 
       <button
+        @click="activeTab = 'appointments'"
+        :class="activeTab === 'appointments'
+          ? 'border-b-4 border-blue-600 font-bold'
+          : 'text-gray-500'"
+        class="pb-2"
+      >
+        นัดหมาย
+      </button>
+
+      <button
         @click="activeTab = 'all'"
         :class="activeTab === 'all'
           ? 'border-b-4 border-blue-600 font-bold'
@@ -177,154 +224,211 @@ onMounted(async () => {
     </div>
 
     <!-- เนื้อหา -->
-    <div>
 
-      <!-- รายงานปัญหา -->
-      <div v-if="activeTab === 'reports'">
-        <div v-if="reports.length === 0" class="text-gray-500">
-          ไม่มีประวัติรายงาน
-        </div>
-
-        <div
-          v-for="item in reports"
-          :key="item.id"
-          class="border rounded-md p-4 mb-4"
-        >
-          <div class="flex justify-between">
-            <h3 class="font-bold text-lg">{{ item.title }}</h3>
-
-            <span
-              class="px-2 py-1 rounded text-white text-sm"
-              :class="{
-                'bg-yellow-500': item.status === 'pending',
-                'bg-blue-500': item.status === 'processing',
-                'bg-green-600': item.status === 'resolved',
-              }"
-            >
-              {{ item.status }}
-            </span>
-          </div>
-
-          <p class="text-gray-600 mt-2">{{ item.detail }}</p>
-
-          <p class="text-sm text-gray-400 mt-1">
-            ส่งเมื่อ: {{ formatDT(item.created_at) }}
-          </p>
-
-          <!-- ปุ่มแก้ไข & ยกเลิก -->
-          <div v-if="item.status === 'pending'" class="mt-4 flex gap-3">
-            <button
-              @click="$router.push(`/report/edit/${item.id}`)"
-              class="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-            >
-              แก้ไข
-            </button>
-
-            <button
-              @click="cancelReport(item.id)"
-              class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
-            >
-              ยกเลิกคำร้อง
-            </button>
-          </div>
-
-        </div>
+    <!-- ========================= -->
+    <!--      รายงานปัญหา         -->
+    <!-- ========================= -->
+    <div v-if="activeTab === 'reports'">
+      <div v-if="reports.length === 0" class="text-gray-500">
+        ไม่มีประวัติรายงาน
       </div>
 
-      <!-- คำขอความอนุเคราะห์ -->
-      <div v-if="activeTab === 'requests'">
-        <div v-if="requests.length === 0" class="text-gray-500">
-          ไม่มีประวัติคำขอความอนุเคราะห์
+      <div
+        v-for="item in reports"
+        :key="item.id"
+        class="border rounded-md p-4 mb-4"
+      >
+        <div class="flex justify-between">
+          <h3 class="font-bold text-lg">{{ item.title }}</h3>
+
+          <span
+            class="px-2 py-1 rounded text-white text-sm"
+            :class="{
+              'bg-yellow-500': item.status === 'pending',
+              'bg-blue-500': item.status === 'processing',
+              'bg-green-600': item.status === 'resolved',
+            }"
+          >
+            {{ item.status }}
+          </span>
         </div>
 
-        <div
-          v-for="item in requests"
-          :key="item.id"
-          class="border rounded-md p-4 mb-4"
-        >
-          <div class="flex justify-between">
-            <h3 class="font-bold text-lg">{{ item.title }}</h3>
+        <p class="text-gray-600 mt-2">{{ item.detail }}</p>
 
-            <span
-              class="px-2 py-1 rounded text-white text-sm"
-              :class="{
-                'bg-yellow-500': item.status === 'pending',
-                'bg-green-600': item.status === 'approved',
-                'bg-red-600': item.status === 'rejected',
-                'bg-purple-600': item.status === 'done',
-              }"
-            >
-              {{ item.status }}
-            </span>
-          </div>
+        <p class="text-sm text-gray-400 mt-1">
+          ส่งเมื่อ: {{ formatDT(item.created_at) }}
+        </p>
 
-          <p class="text-gray-600 mt-2">{{ item.detail }}</p>
+        <!-- ปุ่มแก้ไข & ยกเลิก -->
+        <div v-if="item.status === 'pending'" class="mt-4 flex gap-3">
+          <button
+            @click="$router.push(`/report/edit/${item.id}`)"
+            class="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+          >
+            แก้ไข
+          </button>
 
-          <p class="text-sm text-gray-400 mt-1">
-            ส่งเมื่อ: {{ formatDT(item.created_at) }}
-          </p>
-          <!-- ปุ่มแก้ไข & ยกเลิก -->
-          <div v-if="item.status === 'pending'" class="mt-4 flex gap-3">
-            <button
-              @click="router.push(`/edit-request/${item.id}`)"
-              class="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-            >
-              แก้ไข
-            </button>
-
-            <button
-              @click="cancelRequest(item.id)"
-              class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
-            >
-              ยกเลิก
-            </button>
-          </div>
+          <button
+            @click="cancelReport(item.id)"
+            class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+          >
+            ยกเลิกคำร้อง
+          </button>
         </div>
+
+      </div>
+    </div>
+
+    <!-- ========================= -->
+    <!--   คำขอความอนุเคราะห์     -->
+    <!-- ========================= -->
+    <div v-if="activeTab === 'requests'">
+      <div v-if="requests.length === 0" class="text-gray-500">
+        ไม่มีประวัติคำขอความอนุเคราะห์
       </div>
 
-      <!-- ทั้งหมด -->
-      <div v-if="activeTab === 'all'">
-        <div v-if="merged.length === 0" class="text-gray-500">
-          ยังไม่มีประวัติ
+      <div
+        v-for="item in requests"
+        :key="item.id"
+        class="border rounded-md p-4 mb-4"
+      >
+        <div class="flex justify-between">
+          <h3 class="font-bold text-lg">{{ item.title }}</h3>
+
+          <span
+            class="px-2 py-1 rounded text-white text-sm"
+            :class="{
+              'bg-yellow-500': item.status === 'pending',
+              'bg-green-600': item.status === 'approved',
+              'bg-red-600': item.status === 'rejected',
+              'bg-purple-600': item.status === 'done',
+            }"
+          >
+            {{ item.status }}
+          </span>
         </div>
 
-        <div
-          v-for="item in merged"
-          :key="item.id"
-          class="border rounded-md p-4 mb-4"
-        >
-          <div class="flex justify-between">
+        <p class="text-gray-600 mt-2">{{ item.detail }}</p>
 
-            <h3 class="font-bold text-lg">
-              {{ item.type === 'report' ? 'รายงาน: ' : 'ขอความอนุเคราะห์: ' }}
-              {{ item.title }}
-            </h3>
+        <p class="text-sm text-gray-400 mt-1">
+          ส่งเมื่อ: {{ formatDT(item.created_at) }}
+        </p>
 
-            <span
-              class="px-2 py-1 rounded text-white text-sm"
-              :class="{
-                'bg-yellow-500': item.status === 'pending',
-                'bg-blue-500': item.status === 'processing',
-                'bg-green-600': item.status === 'resolved',
-                'bg-green-700': item.status === 'approved',
-                'bg-red-600': item.status === 'rejected',
-                'bg-purple-600': item.status === 'done',
-              }"
-            >
-              {{ item.status }}
-            </span>
+        <!-- ปุ่มแก้ไข & ยกเลิก -->
+        <div v-if="item.status === 'pending'" class="mt-4 flex gap-3">
+          <button
+            @click="router.push(`/edit-request/${item.id}`)"
+            class="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+          >
+            แก้ไข
+          </button>
 
-          </div>
-
-          <p class="text-gray-600 mt-2">{{ item.detail }}</p>
-
-          <p class="text-sm text-gray-400 mt-1">
-            ส่งเมื่อ: {{ formatDT(item.created_at) }}
-          </p>
-
+          <button
+            @click="cancelRequest(item.id)"
+            class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+          >
+            ยกเลิก
+          </button>
         </div>
       </div>
+    </div>
 
+    <!-- ========================= -->
+    <!--        นัดหมาย            -->
+    <!-- ========================= -->
+    <div v-if="activeTab === 'appointments'">
+
+      <div v-if="appointments.length === 0" class="text-gray-500">
+        ไม่มีประวัตินัดหมาย
+      </div>
+
+      <div
+        v-for="ap in appointments"
+        :key="ap.id"
+        class="border rounded-md p-4 mb-4"
+      >
+        <h3 class="font-bold text-lg">{{ ap.meeting_place }}</h3>
+
+        <p class="text-gray-600 mt-2">
+          วันที่: {{ ap.date }} เวลา {{ ap.start_time }} - {{ ap.end_time }}
+        </p>
+
+        <p class="text-gray-600 mt-2">เหตุผล: {{ ap.reason }}</p>
+
+        <!-- Status -->
+        <span
+          class="px-3 py-1 rounded-full text-xs font-bold"
+          :class="{
+            'bg-yellow-200 text-yellow-800': ap.status === 'pending',
+            'bg-green-200 text-green-800': ap.status === 'approved',
+            'bg-red-200 text-red-800': ap.status === 'rejected',
+          }"
+        >
+          {{ ap.status }}
+        </span>
+
+        <!-- ปุ่มเฉพาะ pending -->
+        <div v-if="ap.status === 'pending'" class="mt-3 flex gap-3">
+          <button
+            @click="$router.push(`/appointments/edit/${ap.id}`)"
+            class="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+          >
+            แก้ไข
+          </button>
+
+          <button
+            class="px-4 py-2 bg-red-600 text-white rounded"
+            @click="cancelAppointment(ap.id)"
+          >
+            ยกเลิก
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= -->
+    <!--        ทั้งหมด           -->
+    <!-- ========================= -->
+    <div v-if="activeTab === 'all'">
+      <div v-if="merged.length === 0" class="text-gray-500">
+        ยังไม่มีประวัติ
+      </div>
+
+      <div
+        v-for="item in merged"
+        :key="item.id"
+        class="border rounded-md p-4 mb-4"
+      >
+        <div class="flex justify-between">
+
+          <h3 class="font-bold text-lg">
+            {{ item.type === 'report' ? 'รายงาน: ' : 'ขอความอนุเคราะห์: ' }}
+            {{ item.title }}
+          </h3>
+
+          <span
+            class="px-2 py-1 rounded text-white text-sm"
+            :class="{
+              'bg-yellow-500': item.status === 'pending',
+              'bg-blue-500': item.status === 'processing',
+              'bg-green-600': item.status === 'resolved',
+              'bg-green-700': item.status === 'approved',
+              'bg-red-600': item.status === 'rejected',
+              'bg-purple-600': item.status === 'done',
+            }"
+          >
+            {{ item.status }}
+          </span>
+
+        </div>
+
+        <p class="text-gray-600 mt-2">{{ item.detail }}</p>
+
+        <p class="text-sm text-gray-400 mt-1">
+          ส่งเมื่อ: {{ formatDT(item.created_at) }}
+        </p>
+
+      </div>
     </div>
 
   </div>

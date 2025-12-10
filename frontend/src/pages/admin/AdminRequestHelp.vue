@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import RequestHelpDetailModal from "../../components/RequestHelpDetailModal.vue";
 
@@ -7,6 +7,9 @@ const list = ref([]);
 const selected = ref(null);
 const modalOpen = ref(false);
 const token = localStorage.getItem("access");
+
+// ⭐ ฟิลเตอร์สถานะ
+const filter = ref("all");
 
 // โหลดข้อมูล
 const loadData = async () => {
@@ -16,6 +19,7 @@ const loadData = async () => {
   list.value = res.data;
 };
 
+// เปิด Modal
 const openDetail = (item) => {
   selected.value = item;
   modalOpen.value = true;
@@ -41,61 +45,68 @@ const formatTime = (datetime) => {
   });
 };
 
+// ⭐ ฟิลเตอร์ข้อมูลตามสถานะ
+const filteredList = computed(() => {
+  if (filter.value === "all") return list.value;
+  return list.value.filter((item) => item.status === filter.value);
+});
+
 onMounted(loadData);
 </script>
-
 
 <template>
   <div class="p-6 max-w-6xl mx-auto">
 
-<div class="flex justify-between items-center mb-6">
-  <h2 class="text-2xl font-bold text-gray-800">
-    คำขอความอนุเคราะห์
-  </h2>
-    <!-- ปุ่ม Filter -->
-  <!-- <div class="flex gap-2 flex-wrap">
-    <button 
-      @click="filter = 'all'"
-      :class="filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
-      class="px-4 py-2 rounded-lg"
-    >
-      ทั้งหมด
-    </button>
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-800">คำขอความอนุเคราะห์</h2>
 
-    <button 
-      @click="filter = 'pending'"
-      :class="filter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'"
-      class="px-4 py-2 rounded-lg"
-    >
-      รอดำเนินการ
-    </button>
+      <router-link 
+        to="/admin/dashboard"
+        class="bg-brand-darkBlue text-white px-4 py-2 rounded-lg shadow hover:bg-blue-800 transition"
+      >
+        กลับหน้าหลัก
+      </router-link>
+    </div>
 
-    <button 
-      @click="filter = 'approved'"
-      :class="filter === 'approved' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'"
-      class="px-4 py-2 rounded-lg"
-    >
-      อนุมัติแล้ว
-    </button>
+    <!-- ⭐ ปุ่ม Filter -->
+    <div class="flex gap-3 mb-5">
 
-    <button 
-      @click="filter = 'rejected'"
-      :class="filter === 'rejected' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'"
-      class="px-4 py-2 rounded-lg"
-    >
-      ปฏิเสธ
-    </button>
-  </div> -->
+      <button 
+        @click="filter = 'all'"
+        :class="filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+        class="px-4 py-2 rounded-lg"
+      >
+        ทั้งหมด
+      </button>
 
-  <router-link 
-    to="/admin/dashboard"
-    class="bg-brand-darkBlue text-white px-4 py-2 rounded-lg shadow hover:bg-blue-800 transition"
-  >
-    กลับหน้าหลัก
-  </router-link>
-</div>
+      <button 
+        @click="filter = 'pending'"
+        :class="filter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'"
+        class="px-4 py-2 rounded-lg"
+      >
+        รอดำเนินการ
+      </button>
 
+      <button 
+        @click="filter = 'approved'"
+        :class="filter === 'approved' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'"
+        class="px-4 py-2 rounded-lg"
+      >
+        อนุมัติแล้ว
+      </button>
 
+      <button 
+        @click="filter = 'rejected'"
+        :class="filter === 'rejected' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'"
+        class="px-4 py-2 rounded-lg"
+      >
+        ปฏิเสธ
+      </button>
+
+    </div>
+
+    <!-- Data Table -->
     <div class="overflow-x-auto bg-white shadow-md rounded-xl">
       <table class="min-w-full border-collapse">
 
@@ -113,14 +124,16 @@ onMounted(loadData);
         <!-- Body -->
         <tbody>
           <tr
-            v-for="item in list"
+            v-for="item in filteredList"
             :key="item.id"
             class="hover:bg-gray-50 transition"
           >
             <td class="py-3 px-4 border-b">{{ item.request_type }}</td>
 
             <td class="py-3 px-4 border-b">
-              {{ formatTime(item.start_datetime) }} - {{ formatTime(item.end_datetime) }}
+              {{ formatTime(item.start_datetime) }} 
+              - 
+              {{ formatTime(item.end_datetime) }}
             </td>
 
             <td class="py-3 px-4 border-b">{{ item.area }}</td>
@@ -164,4 +177,3 @@ onMounted(loadData);
 
   </div>
 </template>
-

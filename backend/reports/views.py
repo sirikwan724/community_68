@@ -4,8 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Report, ReportNote, RequestHelp
-from .serializers import ReportSerializer, ReportNoteSerializer, RequestHelpSerializer
+from .models import Report, ReportNote, RequestHelp, Appointment
+from .serializers import ReportSerializer, ReportNoteSerializer, RequestHelpSerializer, AppointmentSerializer
 
 
 # =====================================================
@@ -411,3 +411,139 @@ def admin_stats(request):
         "reports_by_category": reports_by_category,
         "requests_by_type": requests_by_type
     })
+
+# ===============================
+#  APPOINTMENT (USER)
+# ===============================
+# 1) USER: สร้างนัดหมาย
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_appointment(request):
+
+    data = request.data.copy()
+    data["user"] = request.user.id  # ผูกนัดหมายกับผู้ใช้
+
+    serializer = AppointmentSerializer(data=data)
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=201)
+
+    return Response(serializer.errors, status=400)
+
+
+# 2) USER: ดูนัดหมายของตัวเอง
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_appointments(request):
+
+    appointments = Appointment.objects.filter(user=request.user).order_by("-created_at")
+    serializer = AppointmentSerializer(appointments, many=True)
+    return Response(serializer.data, status=200)
+
+
+# 3) USER: ยกเลิกนัดหมายของตัวเอง
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def cancel_appointment(request, pk):
+
+    try:
+        appointment = Appointment.objects.get(pk=pk, user=request.user)
+    except Appointment.DoesNotExist:
+        return Response({"detail": "ไม่พบนัดหมายนี้"}, status=404)
+
+    if appointment.status != "pending":
+        return Response({"detail": "ไม่สามารถยกเลิกนัดหมายนี้ได้"}, status=400)
+
+    appointment.status = "canceled"
+    appointment.save()
+
+    return Response({"message": "ยกเลิกนัดหมายสำเร็จ"}, status=200)
+
+
+# ===============================
+#  APPOINTMENT (ADMIN)
+# ===============================
+
+# 1) ADMIN: ดูรายการนัดหมายทั้งหมด
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_appointments(request):
+
+    if request.user.role != "admin":
+        return Response({"detail": "คุณไม่มีสิทธิ์เข้าถึง"}, status=403)
+
+    appointments = Appointment.objects.all().order_by("-created_at")
+    serializer = AppointmentSerializer(appointments, many=True)
+    return Response(serializer.data, status=200)
+
+
+# 2) ADMIN: อนุมัตินัดหมาย
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def approve_appointment(request, pk):
+
+    if request.user.role != "admin":
+        return Response({"detail": "คุณไม่มีสิทธิ์"}, status=403)
+
+    try:
+        appointment = Appointment.objects.get(pk=pk)
+    except Appointment.DoesNotExist:
+        return Response({"detail": "ไม่พบนัดหมายนี้"}, status=404)
+
+    appointment.status = "approved"
+    appointment.save()
+
+    return Response({"message": "อนุมัตินัดหมายแล้ว"}, status=200)
+
+
+# 3) ADMIN: ปฏิเสธนัดหมาย
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def reject_appointment(request, pk):
+
+    if request.user.role != "admin":
+        return Response({"detail": "คุณไม่มีสิทธิ์"}, status=403)
+
+    try:
+        appointment = Appointment.objects.get(pk=pk)
+    except Appointment.DoesNotExist:
+        return Response({"detail": "ไม่พบนัดหมายนี้"}, status=404)
+
+    appointment.status = "rejected"
+    appointment.save()
+
+    return Response({"message": "ปฏิเสธนัดหมายแล้ว"}, status=200)
+
+
+# 4) ADMIN: เพิ่มหมายเหตุ (Note)
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def add_appointment_note(request, pk):
+
+    if request.user.role != "admin":
+        return Response({"detail": "คุณไม่มีสิทธิ์"}, status=403)
+
+    try:
+        appointment = Appointment.objects.get(pk=pk)
+    except Appointment.DoesNotExist:
+        return Response({"detail": "ไม่พบนัดหมายนี้"}, status=404)
+
+    note = request.data.get("note", "").strip()
+
+    if not note:
+        return Response({"detail": "กรุณากรอกหมายเหตุ"}, status=400)
+
+    appointment.admin_note = note
+    appointment.save()
+
+    return Response({"message": "เพิ่มหมายเหตุสำเร็จ"}, status=200)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_appointment(request):
+    serializer = AppointmentSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=201)
+    return Response(serializer.errors, status=400)

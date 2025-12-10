@@ -28,8 +28,11 @@ urlpatterns = [
     # Reports API
     path("api/reports/", include("reports.urls")),
 
-    # ⭐ Public Service API (บริการสาธารณะ)
+    # Public Service API (บริการสาธารณะ)
     path("api/services/", include("publicservice.urls")),
+
+    path("api/appointments/", include("reports.appointment_urls")),
+
 ]
 
 # Serve media files

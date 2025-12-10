@@ -188,6 +188,14 @@ const logout = () => {
           <span class="text-lg font-medium text-gray-700">ประวัติของฉัน</span>
         </router-link>
 
+        <router-link
+          to="/appointment/create"
+          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-blue-500"
+        >
+          <span class="text-lg font-medium text-gray-700">ขอนัดหมาย</span>
+        </router-link>
+
+
         <!-- ประวัติคำร้อง
         <router-link
           to="/report/list"

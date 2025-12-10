@@ -92,13 +92,13 @@ const goToNewsList = () => {
                 </div>
             </router-link>
 
-            <!-- <router-link to="/admin/appointments" class="admin-card group">
+            <router-link to="/admin/appointments" class="admin-card group">
 
                 <div class="text-center">
-                    <h4 class="font-bold text-gray-800">ตารางนัดหมาย</h4>
-                    <p class="text-xs text-gray-500 mt-1">ดูคิวนัดพบชาวบ้าน</p>
+                    <h4 class="font-bold text-gray-800">ตารางการนัดหมาย</h4>
+                    <p class="text-xs text-gray-500 mt-1">จัดการรายการนัดหมายทั้งหมด</p>
                 </div>
-            </router-link> -->
+            </router-link>
 
             <router-link to="/admin/services" class="admin-card group">
                 <div class="text-center">
