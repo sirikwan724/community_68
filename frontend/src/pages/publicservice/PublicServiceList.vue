@@ -1,7 +1,10 @@
 <template>
-  <div class="container mx-auto p-6">
+  <div class="p-6">
 
-    <!-- 🔹 ปุ่มกลับหน้าหลัก -->
+    <!--  หัวข้อ -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-3">
+    <h1 class="text-2xl font-bold text-gray-800">บริการสาธารณะของหมู่บ้าน</h1>
+
     <div class="mb-4">
       <router-link
         to="/"
@@ -10,13 +13,9 @@
         กลับหน้าหลัก
       </router-link>
     </div>
+    </div>
 
-    <!-- 🔹 หัวข้อ -->
-    <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
-      บริการสาธารณะของหมู่บ้าน
-    </h2>
-
-    <!-- 🔹 ปุ่มฟิลเตอร์ -->
+    <!--  ปุ่มฟิลเตอร์ -->
     <div class="flex gap-2 mb-6">
       <button
         @click="filterType = 'all'"

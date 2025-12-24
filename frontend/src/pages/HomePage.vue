@@ -176,25 +176,31 @@ const logout = () => {
         <!-- ส่งคำร้อง -->
         <router-link
           to="/report/create"
-          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-blue-500"
+          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-green-500"
         >
           <span class="text-lg font-medium text-gray-700">ส่งคำร้อง/แจ้งปัญหา</span>
         </router-link>
 
         <router-link 
           to="/my-history"
-          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-blue-500"
+          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-pink-500"
         >
           <span class="text-lg font-medium text-gray-700">ประวัติของฉัน</span>
         </router-link>
 
         <router-link
           to="/appointment/create"
-          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-blue-500"
+          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-purple-500"
         >
           <span class="text-lg font-medium text-gray-700">ขอนัดหมาย</span>
         </router-link>
 
+        <router-link
+          to="/borrow"
+          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-red-500"
+        >
+          <span class="text-lg font-medium text-gray-700">ขออนุญาตยืม</span>
+        </router-link>
 
         <!-- ประวัติคำร้อง
         <router-link

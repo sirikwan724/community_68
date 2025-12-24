@@ -17,6 +17,8 @@ urlpatterns = [
     # ============================
     # ADMIN: การจัดการสถานะ
     # ============================
+    path("<int:id>/", appointment_views.get_my_appointment, name="get_my_appointment"),
+    path("<int:id>/update/", appointment_views.update_appointment, name="update_appointment"),
     path("<int:id>/accept/", appointment_views.accept_appointment, name="accept_appointment"),
     path("<int:id>/reject/", appointment_views.reject_appointment, name="reject_appointment"),
     path("<int:id>/done/", appointment_views.done_appointment, name="done_appointment"),

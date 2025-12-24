@@ -111,3 +111,29 @@ def done_appointment(request, id):
     appointment.save()
 
     return Response({"message": "ดำเนินการเสร็จสิ้น", "status": "done"}, status=200)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_my_appointment(request, id):
+    try:
+        ap = Appointment.objects.get(id=id, user=request.user)
+    except Appointment.DoesNotExist:
+        return Response({"detail": "ไม่พบนัดหมายนี้"}, status=404)
+
+    serializer = AppointmentSerializer(ap)
+    return Response(serializer.data, status=200)
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def update_appointment(request, id):
+    try:
+        ap = Appointment.objects.get(id=id, user=request.user)
+    except Appointment.DoesNotExist:
+        return Response({"detail": "ไม่พบนัดหมายนี้"}, status=404)
+
+    serializer = AppointmentSerializer(ap, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=200)
+
+    return Response(serializer.errors, status=400)

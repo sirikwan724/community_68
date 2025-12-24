@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'accounts', # บัญชี เข้าสู่ระบบ ลงทะเบียน
     'reports', # รายงานปัญหา
     'publicservice', # บริการสาธารณะ
+
+    'borrow', # ยืม-คืน อุปกรณ์
 ]
 
 MIDDLEWARE = [
@@ -63,7 +65,7 @@ MIDDLEWARE = [
 
 CORS_ALLOW_ALL_ORIGINS = True #Frontend (Vite) จะเข้าถึง Django ได้เลย
 ROOT_URLCONF = 'core.urls'
-AUTH_USER_MODEL = 'accounts.User' #สำคัญมาก เพราะใช้ Custom User Model (ถ้าไม่ตั้งจะ migrate ไม่ได้)
+AUTH_USER_MODEL = 'accounts.User' 
 
 
 TEMPLATES = [
@@ -94,6 +96,7 @@ DATABASES = {
         'PASSWORD': '2004',   
         'HOST': 'localhost',
         'PORT': '5432',
+        'CONN_MAX_AGE': 0,
     }
 }
 

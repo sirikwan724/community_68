@@ -50,7 +50,7 @@ const handleLogin = async () => {
         @click="$router.push('/')"
         class="text-gray-500 text-sm flex items-center mb-4 hover:text-gray-700"
       >
-        ← กลับหน้าหลัก
+         กลับหน้าหลัก
       </button>
 
       <!-- Title -->

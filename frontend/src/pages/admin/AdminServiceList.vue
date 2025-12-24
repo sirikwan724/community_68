@@ -1,46 +1,68 @@
 <template>
   <div class="p-6">
+    <div class="flex gap-3 mb-4 items-center justify-between">
+      <h1 class="text-2xl font-bold text-gray-800">บริหารจัดการบริการสาธารณะ</h1>
 
-    <!-- ปุ่มกลับ -->
-    <router-link
-      to="/admin/dashboard"
-      class="inline-block bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
-    >
-      กลับหน้าหลัก
-    </router-link>
+        <div class="flex items-center gap-3">
+                <router-link
+                  to="/admin/dashboard"
+                  class="bg-brand-darkBlue text-white px-4 py-2 rounded-lg shadow hover:bg-blue-800 transition"
+                >
+                  กลับหน้าหลัก
+                </router-link>
 
-    <h1 class="text-2xl font-bold mt-4 mb-6">บริหารจัดการบริการสาธารณะ</h1>
-
-    <!-- ปุ่มฟิลเตอร์ -->
-    <div class="flex gap-2 mb-4">
-      <button
-        @click="filterType = 'all'"
-        :class="filterType === 'all' ? active : inactive"
-      >ทั้งหมด</button>
-
-      <button
-        @click="filterType = 'washer'"
-        :class="filterType === 'washer' ? active : inactive"
-      >ตู้ซักผ้า</button>
-
-      <button
-        @click="filterType = 'water'"
-        :class="filterType === 'water' ? active : inactive"
-      >ตู้กดน้ำ</button>
-
-      <button
-        @click="filterType = 'other'"
-        :class="filterType === 'other' ? active : inactive"
-      >อื่น ๆ</button>
+                <router-link
+                  to="/admin/services/create"
+                  class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                     เพิ่มบริการใหม่
+                  </router-link>
+             </div>
     </div>
 
-    <!-- ปุ่มเพิ่ม -->
-    <router-link
-      to="/admin/services/create"
-      class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-    >
-      ➕ เพิ่มบริการใหม่
-    </router-link>
+    <!-- ปุ่มฟิลเตอร์ -->
+      <div class="flex gap-3 mb-4">
+        <button
+          @click="changeFilter('all')"
+          :class="activeFilter === 'all'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-200 text-gray-700'"
+          class="px-4 py-2 rounded"
+        >
+          ทั้งหมด
+        </button>
+      
+        <button
+          @click="changeFilter('washer')"
+          :class="activeFilter === 'washer'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-200 text-gray-700'"
+          class="px-4 py-2 rounded"
+        >
+          ตู้ซักผ้า
+        </button>
+      
+        <button
+          @click="changeFilter('water')"
+          :class="activeFilter === 'water'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-200 text-gray-700'"
+          class="px-4 py-2 rounded"
+        >
+          ตู้กดน้ำ
+        </button>
+      
+        <button
+          @click="changeFilter('other')"
+          :class="activeFilter === 'other'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-200 text-gray-700'"
+          class="px-4 py-2 rounded"
+        >
+          อื่น ๆ
+        </button>
+      </div>
+
 
     <!-- ถ้าไม่มีรายการ -->
     <div v-if="filteredServices.length === 0" class="mt-10 text-gray-500">
@@ -108,28 +130,60 @@ const services = ref([]);
 const menuOpen = ref(null);
 const router = useRouter();
 
-const filterType = ref("all"); // <-- ค่า default
+/* ===============================
+   1) ตัวแปรฟิลเตอร์
+================================ */
+const activeFilter = ref("all");
 
-// โหลดข้อมูล
+const changeFilter = (type) => {
+  activeFilter.value = type;
+};
+
+/* ===============================
+   2) map ค่าให้ตรงกับ backend
+   (backend ใช้ category)
+================================ */
+const typeMap = {
+  washer: "washer",
+  water: "water",
+  other: "other",
+};
+
+/* ===============================
+   3) โหลดข้อมูลจาก backend
+================================ */
 onMounted(async () => {
   try {
     const res = await axios.get("http://localhost:8000/api/services/");
     services.value = res.data;
-    console.log("SERVICES:", services.value);
+
+    // ใช้ตรวจสอบชั่วคราว (ลบได้ภายหลัง)
+    console.log(
+      "SERVICE CATEGORIES:",
+      services.value.map(s => s.category)
+    );
   } catch (err) {
     console.error(err);
   }
 });
 
-// ฟิลเตอร์รายการตาม category
+/* ===============================
+   4) ฟิลเตอร์ (จุดสำคัญที่สุด)
+================================ */
 const filteredServices = computed(() => {
-  if (filterType.value === "all") return services.value;
+  if (activeFilter.value === "all") {
+    return services.value;
+  }
 
   return services.value.filter(
-    (s) => s.category === filterType.value  // << ใช้ category ที่มาจาก API
+    service => service.category === typeMap[activeFilter.value]
   );
 });
 
+/* ===============================
+   5) เมนู / แก้ไข / ลบ
+   (ไม่แตะ ไม่กระทบ)
+================================ */
 const openMenu = (id) => {
   menuOpen.value = menuOpen.value === id ? null : id;
 };
@@ -150,3 +204,4 @@ const deleteService = async (id) => {
   }
 };
 </script>
+

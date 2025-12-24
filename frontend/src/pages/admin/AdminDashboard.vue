@@ -76,6 +76,16 @@ const goToNewsList = () => {
                 <!-- <span v-if="stats.newReports > 0" class="badge bg-red-500">{{ stats.newReports }}</span> -->
             </router-link>
 
+            <router-link to="/admin/borrows" class="admin-card group">
+
+                <div class="text-center">
+                    <h4 class="font-bold text-gray-800">จัดการการยืม/จอง</h4>
+                    <p class="text-xs text-gray-500 mt-1">อนุมัติคำขอการยืม/จอง</p>
+                </div>
+
+            </router-link>
+
+
             <!-- <router-link to="/admin/bookings" class="admin-card group">
 
                 <div class="text-center">

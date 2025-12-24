@@ -39,6 +39,25 @@ const createReportChart = (data) => {
         },
       ],
     },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      radius: "100%",
+      plugins: {
+        legend: {
+          position: "top",
+          labels: {
+            boxWidth: 30,
+            boxHeight: 18,
+            padding: 20,
+            font: {
+              size: 16,
+              family: "Prompt",
+            },
+          },
+        },
+      },
+    },
   });
 };
 
@@ -53,7 +72,7 @@ const createRequestChart = (data) => {
       labels: Object.keys(data),
       datasets: [
         {
-          label: "จำนวนคำขอ",
+          label: "จำนวนคำขอทั้งหมด",
           data: Object.values(data),
         },
       ],
@@ -67,7 +86,7 @@ onMounted(loadStats);
 <template>
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold">สถิติของคำร้อง/คำขอ</h1>
+      <h1 class="text-3xl font-bold">สถิติหมู่บ้าน</h1>
 
       <router-link
         to="/admin/dashboard"
@@ -79,13 +98,18 @@ onMounted(loadStats);
 
     <!-- รายงานร้องเรียน (Pie Chart) -->
     <div class="bg-white shadow rounded p-4 mb-10">
-      <h2 class="text-xl font-bold mb-4">จำนวนรายงานร้องเรียนรายประเภท</h2>
-      <canvas ref="reportChart"></canvas>
+      <h2 class="text-xl font-bold mb-4">
+        รายงานร้องเรียน
+      </h2>
+    
+      <div class="h-[560px] relative">
+        <canvas ref="reportChart"></canvas>
+      </div>
     </div>
 
     <!-- คำขอความอนุเคราะห์ (Bar Chart) -->
     <div class="bg-white shadow rounded p-4">
-      <h2 class="text-xl font-bold mb-4">จำนวนคำขอความอนุเคราะห์รายประเภท</h2>
+      <h2 class="text-xl font-bold mb-4">จำนวนคำขอความอนุเคราะห์</h2>
       <canvas ref="requestChart"></canvas>
     </div>
   </div>
