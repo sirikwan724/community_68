@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import axios from "axios";
 
 const props = defineProps({
@@ -7,11 +7,32 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["close", "updated"]);
-
 const getToken = () => localStorage.getItem("access");
 
+const currentReport = ref(null);
 const noteText = ref("");
 const newStatus = ref("");
+
+const loadReportDetail = async () => {
+  const res = await axios.get(
+    `http://localhost:8000/api/reports/${props.report.id}/`,
+    {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }
+  );
+  currentReport.value = res.data;
+};
+
+// เมื่อ modal เปิด / report เปลี่ยน → โหลดใหม่
+watch(
+  () => props.report,
+  () => {
+    if (props.report?.id) {
+      loadReportDetail();
+    }
+  },
+  { immediate: true }
+);
 
 // ------------------------------
 // ปิดหน้าต่าง Popup
@@ -81,11 +102,31 @@ const updateStatus = async () => {
     alert("อัปเดตสถานะไม่สำเร็จ");
   }
 };
+
+const formatDateTimeTH = (datetime) => {
+  if (!datetime) return "-";
+
+  const date = new Date(datetime);
+
+  const datePart = date.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const timePart = date.toLocaleTimeString("th-TH", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `${datePart} เวลา ${timePart} น.`;
+};
+
 </script>
 
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-    <div class="bg-white p-6 w-full max-w-xl rounded shadow-lg relative">
+  <div v-if="currentReport" class="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+    <div class="bg-white p-6 w-full max-w-xl rounded shadow-lg relative max-h-[90vh] overflow-y-auto">
 
       <!-- ปุ่มปิด -->
       <button class="absolute top-2 right-2 text-gray-600 text-xl" @click="closeModal">✕</button>
@@ -93,13 +134,13 @@ const updateStatus = async () => {
       <h2 class="text-xl font-bold mb-4">รายละเอียดรายงาน</h2>
 
       <!-- รายละเอียด -->
-      <div class="space-y-2">
-        <p><strong>หัวข้อ:</strong> {{ report.category }}</p>
-        <p><strong>ผู้แจ้ง:</strong> {{ report.user_data.full_name }}</p>
-        <p><strong>เบอร์โทร:</strong> {{ report.user_data.phone }}</p>
-        <p><strong>พื้นที่:</strong> {{ report.area }}</p>
-        <p><strong>รายละเอียด:</strong> {{ report.description }}</p>
-        <p><strong>วันที่แจ้ง:</strong> {{ report.created_at }}</p>
+      <div v-if="currentReport" class="space-y-2">
+        <p><strong>หัวข้อ:</strong> {{ currentReport.category }}</p>
+        <p><strong>ผู้แจ้ง:</strong> {{ currentReport.user_data.full_name }}</p>
+        <p><strong>เบอร์โทร:</strong> {{ currentReport.user_data.phone }}</p>
+        <p><strong>พื้นที่:</strong> {{ currentReport.area }}</p>
+        <p><strong>รายละเอียด:</strong> {{ currentReport.description }}</p>
+        <p><strong>วันที่แจ้ง:</strong> {{ formatDateTimeTH(currentReport.created_at) }}</p>
 
         <div v-if="report.image" class="mt-3">
           <img
@@ -107,22 +148,6 @@ const updateStatus = async () => {
             class="w-full max-h-64 object-cover rounded border"
           />
         </div>
-      </div>
-
-      <!-- ประวัติโน้ตเก่า -->
-      <div v-if="report.notes && report.notes.length" class="mt-6">
-        <h3 class="font-semibold mb-2">บันทึกโน้ตที่ผ่านมา</h3>
-
-        <ul class="space-y-2">
-          <li 
-            v-for="note in report.notes" 
-            :key="note.id"
-            class="p-2 bg-gray-100 rounded border"
-          >
-            <p class="text-sm">{{ note.text }}</p>
-            <p class="text-xs text-gray-500">{{ note.created_at }}</p>
-          </li>
-        </ul>
       </div>
 
       <!-- อัปเดตสถานะ -->
@@ -133,12 +158,56 @@ const updateStatus = async () => {
           v-model="newStatus"
           class="w-full p-2 border rounded mt-2"
         >
-          <option disabled value="">-- เลือกสถานะใหม่ --</option>
-          <option value="accepted">รับเรื่อง</option>
-          <option value="processing">กำลังดำเนินการ</option>
-          <option value="resolved">ดำเนินการเสร็จสิ้น</option>
-          <option value="rollback">ย้อนกลับสถานะ</option>
+          <option
+            value="accepted"
+            v-if="currentReport.status === 'pending'"
+          >
+            รับเรื่อง
+          </option>
+
+          <option
+            value="processing"
+            v-if="currentReport.status === 'processing'"
+          >
+            เพิ่มบันทึก / ดำเนินการต่อ
+          </option>
+
+          <option
+            value="resolved"
+            v-if="currentReport.status === 'processing'"
+          >
+            ดำเนินการเสร็จสิ้น
+          </option>
+
+          <option
+            value="rollback"
+            v-if="currentReport.status === 'resolved'"
+          >
+            ย้อนกลับสถานะ
+          </option>
+
         </select>
+      </div>
+
+      <!-- ประวัติโน้ต -->
+      <div
+        v-if="currentReport.notes && currentReport.notes.length"
+        class="mt-6 border-t pt-4"
+      >
+        <h3 class="font-semibold mb-3">ประวัติการอัปเดต</h3>
+
+        <ul class="space-y-3 max-h-48 overflow-y-auto">
+          <li
+            v-for="note in currentReport.notes"
+            :key="note.id"
+            class="p-3 bg-gray-100 rounded border"
+          >
+            <p>{{ note.text }}</p>
+            <p class="text-xs text-gray-500">
+              {{ new Date(note.created_at).toLocaleString("th-TH") }}
+            </p>
+          </li>
+        </ul>
       </div>
 
       <!-- ช่องใส่โน้ตใหม่ -->

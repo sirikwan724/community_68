@@ -37,21 +37,26 @@
       </div>
 
       <!-- เปลี่ยนรูปใหม่ -->
+       <div class="mt-4">
+        <p class="text-gray-600 mb-2">อัปโหลดรูปภาพใหม่ (ถ้ามี):</p>
       <input type="file" @change="uploadFile" />
+      </div>
 
       <!-- ปุ่มบันทึก -->
-      <button
-        @click="updateService"
-        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-      >
-        บันทึกการเปลี่ยนแปลง
-      </button>
+      <div class="flex items-center gap-3 mt-6">
+        <button
+          @click="updateService"
+          class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          บันทึกการเปลี่ยนแปลง
+        </button>
 
-      <!-- ปุ่มกลับ -->
-      <button @click="router.push('/admin/services/')"
-        class="px-4 py-2 bg-gray-300 rounded">
-      กลับหน้าหลัก
-      </button>
+        <!-- ปุ่มกลับ -->
+        <button @click="router.push('/admin/services/')"
+          class="px-4 py-2 bg-gray-300 rounded">
+        กลับหน้าหลัก
+        </button>
+      </div>
 
     </div>
   </div>

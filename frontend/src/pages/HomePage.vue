@@ -199,16 +199,8 @@ const logout = () => {
           to="/borrow"
           class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-red-500"
         >
-          <span class="text-lg font-medium text-gray-700">ขออนุญาตยืม</span>
+          <span class="text-lg font-medium text-gray-700">ขออนุญาตยืม/จอง</span>
         </router-link>
-
-        <!-- ประวัติคำร้อง
-        <router-link
-          to="/report/list"
-          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-teal-500"
-        >
-          <span class="text-lg font-medium text-gray-700">ประวัติคำร้อง</span>
-        </router-link> -->
 
         <!-- เฉพาะ Admin -->
         <router-link

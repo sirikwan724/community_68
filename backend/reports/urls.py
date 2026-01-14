@@ -1,6 +1,10 @@
 from django.urls import path
-from .views import admin_request_help, create_report, admin_list_reports, create_request_help, my_request_help, admin_request_help, update_my_request
+from .views import report_views as rv
+from .views import request_help_views as hv
+from .views import stats_views as sv
 from . import views
+from .views.report_views import report_cancel
+
 
 urlpatterns = [
 
@@ -10,7 +14,7 @@ urlpatterns = [
     path("create/", views.create_report),
     path("my/", views.my_reports),
     path("<int:pk>/", views.report_detail),
-    path("<int:pk>/cancel/", views.report_cancel),
+    path("<int:pk>/cancel/", report_cancel),
 
     # -------------------------
     # Report (Admin)
@@ -32,7 +36,7 @@ urlpatterns = [
     path("help/my/", views.my_request_help),
     path("help/my/<int:pk>/", views.get_my_request_help),
     path("help/my/<int:pk>/update/", views.update_my_request),
-    path("help/my/<int:pk>/cancel/", views.cancel_my_request),  
+    path("help/my/<int:pk>/cancel/", views.cancel_my_request),
 
     # -------------------------
     # Request Help (Admin)
@@ -43,20 +47,20 @@ urlpatterns = [
     # -------------------------
     # Statistics
     # -------------------------
-    path("admin/stats/", views.admin_stats),  
+    path("admin/stats/", views.admin_stats),
 
-    # ===============================
-    #  APPOINTMENTS
-    # ===============================
-    # USER
+    # -------------------------
+    # Appointments (User)
+    # -------------------------
     path("appointments/create/", views.create_appointment),
     path("appointments/my/", views.my_appointments),
     path("appointments/my/<int:pk>/cancel/", views.cancel_appointment),
 
-    # ADMIN
+    # -------------------------
+    # Appointments (Admin)
+    # -------------------------
     path("appointments/admin/", views.admin_appointments),
     path("appointments/<int:pk>/approve/", views.approve_appointment),
     path("appointments/<int:pk>/reject/", views.reject_appointment),
     path("appointments/<int:pk>/note/", views.add_appointment_note),
-
 ]

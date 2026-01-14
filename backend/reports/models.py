@@ -29,6 +29,7 @@ class Report(models.Model):
             ("pending", "รอตรวจสอบ"),
             ("processing", "กำลังดำเนินการ"),
             ("resolved", "แก้ไขแล้ว"),
+            ("canceled", "ยกเลิกโดยผู้ใช้"),
         ]
     )
 
@@ -102,6 +103,14 @@ class Appointment(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     meet_with = models.CharField(max_length=30, choices=MEET_WITH_CHOICES)
+    meeting_person = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="appointments_received"
+    )
+
     meeting_place = models.CharField(max_length=30, choices=PLACE_CHOICES)
 
     date = models.DateField()
@@ -116,4 +125,12 @@ class Appointment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Appointment by {self.user} on {self.date}"
+        return (
+            f"นัดหมาย {self.get_meet_with_display()} "
+            f"วันที่ {self.date} ({self.get_status_display()})"
+        )
+
+# ===============================
+# ADMIN STATS
+# ===============================
+

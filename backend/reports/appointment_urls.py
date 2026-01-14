@@ -1,25 +1,28 @@
 from django.urls import path
-from . import appointment_views
+from .views import appointment_views as av
+from .views.appointment_views import (
+    create_appointment,
+    my_appointments,
+    cancel_appointment,
+    admin_appointments,
+    approve_appointment,
+    reject_appointment,
+    add_appointment_note,
+    appointment_detail,
+)
 
 urlpatterns = [
+    # USER
+    path("create/", create_appointment),
+    path("my/", my_appointments),
+    path("my/<int:pk>/cancel/", cancel_appointment),
+    path("my/<int:pk>/", appointment_detail),
 
-    # ============================
-    # USER: นัดหมาย
-    # ============================
-    path("create/", appointment_views.create_appointment, name="create_appointment"),
-    path("my/", appointment_views.my_appointments, name="my_appointments"),
+    # ADMIN
+    path("admin/", admin_appointments),
+    path("all/", admin_appointments),
 
-    # ============================
-    # ADMIN: นัดหมายทั้งหมด
-    # ============================
-    path("all/", appointment_views.admin_list_appointments, name="admin_list_appointments"),
-
-    # ============================
-    # ADMIN: การจัดการสถานะ
-    # ============================
-    path("<int:id>/", appointment_views.get_my_appointment, name="get_my_appointment"),
-    path("<int:id>/update/", appointment_views.update_appointment, name="update_appointment"),
-    path("<int:id>/accept/", appointment_views.accept_appointment, name="accept_appointment"),
-    path("<int:id>/reject/", appointment_views.reject_appointment, name="reject_appointment"),
-    path("<int:id>/done/", appointment_views.done_appointment, name="done_appointment"),
+    path("<int:pk>/approve/", approve_appointment),
+    path("<int:pk>/reject/", reject_appointment),
+    path("<int:pk>/note/", add_appointment_note),
 ]

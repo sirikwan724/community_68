@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count, Sum
 
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
@@ -29,13 +29,13 @@ class MyBorrowRequestListView(generics.ListAPIView):
     """
     ผู้ใช้งานดูคำขอยืมของตัวเอง
     """
-    serializer_class = BorrowRequestSerializer
+    serializer_class = BorrowRequestReadSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return BorrowRequest.objects.filter(
             user=self.request.user
-        ).order_by('-created_at')
+        ).prefetch_related("items__item")
 
 
 class RequestReturnView(APIView):
@@ -75,6 +75,7 @@ class AdminBorrowRequestListView(generics.ListAPIView):
     แอดมินดูคำขอยืมทั้งหมด
     """
     serializer_class = BorrowRequestSerializer
+    serializer_class = BorrowRequestReadSerializer
     permission_classes = [IsAdmin]
 
     def get_queryset(self):
@@ -230,3 +231,68 @@ class MyBorrowRequestListView(generics.ListAPIView):
         return BorrowRequest.objects.filter(
             user=self.request.user
         ).prefetch_related("items__item")
+
+# ===============================
+# ADMIN STATS
+# ===============================
+class AdminBorrowItemStatsView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        SUCCESS_STATUSES = ['approved', 'return_requested', 'returned', 'borrowed']
+
+        data = (
+            BorrowRequest.objects
+            .filter(
+                borrow_type='ITEM',
+                status__in=SUCCESS_STATUSES
+            )
+            .values('items__item__name')
+            .annotate(total=Sum('items__quantity'))
+        )
+
+        result = {
+            row['items__item__name']: row['total']
+            for row in data
+            if row['items__item__name']
+        }
+
+        return Response(result)
+
+class AdminBorrowLocationStatsView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        data = (
+            BorrowRequest.objects
+            .filter(
+                borrow_type='LOCATION',
+                status='approved'
+            )
+            .values('location__name')
+            .annotate(total=Count('id'))
+        )
+
+        result = {
+            row['location__name']: row['total']
+            for row in data
+            if row['location__name']
+        }
+
+        return Response(result)
+
+class AdminBorrowSummaryStatsView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        SUCCESS_STATUSES = ['approved', 'return_requested', 'returned', 'borrowed']
+
+        qs = BorrowRequest.objects.filter(status__in=SUCCESS_STATUSES)
+
+        result = qs.aggregate(
+            success_total=Count('id'),
+            success_item=Count('id', filter=Q(borrow_type='ITEM')),
+            success_location=Count('id', filter=Q(borrow_type='LOCATION')),
+        )
+
+        return Response(result)

@@ -103,6 +103,13 @@ const submitForm = async () => {
     >
       ส่งคำขอ
     </button>
+    <!-- ปุ่มยกเลิก -->
+    <button
+        @click="cancelForm"
+        class="w-full bg-gray-200 text-gray-700 mt-4 py-3 rounded hover:bg-gray-300"
+      >
+        ยกเลิก
+      </button>
 
     <!-- ปุ่มกลับหน้าหลัก -->
     <button

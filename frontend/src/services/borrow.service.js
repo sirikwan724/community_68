@@ -10,9 +10,9 @@ export const BorrowService = {
     return api.get("/borrow/my/");
   },
 
-  getMyRequests() {
-    return api.get("/borrow/my/");
-  },
+  // getMyRequests() {
+  //   return api.get("/borrow/my/");
+  // },
 
   requestReturn(id) {
     return api.post(`/borrow/request-return/${id}/`);
@@ -23,9 +23,9 @@ export const BorrowService = {
     return api.get("/borrow/admin/requests/");
   },
 
-  getAdminRequests() {
-    return api.get("/borrow/admin/requests/");
-  },
+  // getAdminRequests() {
+  //   return api.get("/borrow/admin/requests/");
+  // },
 
   approve(id) {
     return api.post(`/borrow/admin/${id}/approve/`);

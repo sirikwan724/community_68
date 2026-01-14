@@ -5,22 +5,41 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
 class RegistrationRequestSerializer(serializers.ModelSerializer):
+    created_at_formatted = serializers.DateTimeField(
+        source="created_at",
+        format="%d/%m/%Y",
+        read_only=True
+    )
     class Meta:
         model = RegistrationRequest
         fields = [
             "id",
+            "username",         
             "full_name",
             "phone",
             "address",
-            "citizen_id",
+            "citizen_id",        
             "house_owner_name",
             "password",
             "status",
             "created_at",
+            "created_at_formatted",
         ]
         read_only_fields = ["id", "status", "created_at"]
 
-    # ทำการ hash password ก่อนบันทึกลง DB
+    def validate_username(self, value):
+        """
+        ป้องกัน username ซ้ำกับ User ที่มีอยู่แล้ว
+        """
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("ชื่อผู้ใช้งานนี้ถูกใช้แล้ว")
+
+        return value
+
+    # hash password ก่อนบันทึก
     def create(self, validated_data):
         raw_password = validated_data.get("password")
         validated_data["password"] = make_password(raw_password)
@@ -68,7 +87,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class NewsSerializer(serializers.ModelSerializer):
     # แปลงวันที่เป็นรูปแบบที่อ่านง่าย (เช่น 18 ม.ค. 2568)
-    created_at_formatted = serializers.DateTimeField(source='created_at', format="%d/%m/%Y %H:%M", read_only=True)
+    created_at_formatted = serializers.DateTimeField(source='created_at', format="%d/%m/%Y", read_only=True)
     
     class Meta:
         model = News

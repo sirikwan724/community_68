@@ -12,6 +12,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
+    'content-type',
+]
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -65,8 +71,7 @@ MIDDLEWARE = [
 
 CORS_ALLOW_ALL_ORIGINS = True #Frontend (Vite) จะเข้าถึง Django ได้เลย
 ROOT_URLCONF = 'core.urls'
-AUTH_USER_MODEL = 'accounts.User' 
-
+AUTH_USER_MODEL = 'accounts.User' #บอก Django ว่า เราใช้ Model User ที่เราสร้างขึ้นเอง
 
 TEMPLATES = [
     {

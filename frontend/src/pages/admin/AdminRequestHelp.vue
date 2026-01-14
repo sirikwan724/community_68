@@ -8,8 +8,35 @@ const selected = ref(null);
 const modalOpen = ref(false);
 const token = localStorage.getItem("access");
 
-// ⭐ ฟิลเตอร์สถานะ
+//  ฟิลเตอร์ ปี / เดือน / สถานะ
+const selectedYear = ref("");
+const selectedMonth = ref("");
 const filter = ref("all");
+const selectedStatus = ref("");
+
+// =======================
+// ปี (ย้อนหลัง 5 ปี)
+// =======================
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+// =======================
+// เดือน
+// =======================
+const months = [
+  { value: 1, label: "มกราคม" },
+  { value: 2, label: "กุมภาพันธ์" },
+  { value: 3, label: "มีนาคม" },
+  { value: 4, label: "เมษายน" },
+  { value: 5, label: "พฤษภาคม" },
+  { value: 6, label: "มิถุนายน" },
+  { value: 7, label: "กรกฎาคม" },
+  { value: 8, label: "สิงหาคม" },
+  { value: 9, label: "กันยายน" },
+  { value: 10, label: "ตุลาคม" },
+  { value: 11, label: "พฤศจิกายน" },
+  { value: 12, label: "ธันวาคม" },
+];
 
 // โหลดข้อมูล
 const loadData = async () => {
@@ -45,10 +72,25 @@ const formatTime = (datetime) => {
   });
 };
 
-// ⭐ ฟิลเตอร์ข้อมูลตามสถานะ
+// ฟิลเตอร์
 const filteredList = computed(() => {
-  if (filter.value === "all") return list.value;
-  return list.value.filter((item) => item.status === filter.value);
+  return list.value.filter(item => {
+    const date = new Date(item.start_datetime);
+
+    const matchYear =
+      !selectedYear.value ||
+      date.getFullYear() === Number(selectedYear.value);
+
+    const matchMonth =
+      !selectedMonth.value ||
+      date.getMonth() + 1 === Number(selectedMonth.value);
+
+    const matchStatus =
+      !selectedStatus.value ||
+      item.status === selectedStatus.value;
+
+    return matchYear && matchMonth && matchStatus;
+  });
 });
 
 onMounted(loadData);
@@ -60,50 +102,39 @@ onMounted(loadData);
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold text-gray-800">คำขอความอนุเคราะห์</h2>
+            <!-- ฟิลเตอร์ ปี / เดือน -->
+      <div class="flex gap-3 mb-4">
+      
+        <!-- ปี -->
+        <select v-model="selectedYear" class="border rounded px-4 py-2">
+          <option value="">ทุกปี</option>
+          <option v-for="y in years" :key="y" :value="y">
+            {{ y }}
+          </option>
+        </select>
+      
+        <!-- เดือน -->
+        <select v-model="selectedMonth" class="border rounded px-4 py-2">
+          <option value="">ทุกเดือน</option>
+          <option v-for="m in months" :key="m.value" :value="m.value">
+            {{ m.label }}
+          </option>
+        </select>
+        <select v-model="selectedStatus" class="border rounded px-4 py-2">
+          <option value="">ทุกสถานะ</option>
+          <option value="pending">รอดำเนินการ</option>
+          <option value="approved">อนุมัติแล้ว</option>
+          <option value="rejected">ปฏิเสธ</option>
+        </select>
 
-      <router-link 
+        <router-link 
         to="/admin/dashboard"
         class="bg-brand-darkBlue text-white px-4 py-2 rounded-lg shadow hover:bg-blue-800 transition"
-      >
+        >
         กลับหน้าหลัก
-      </router-link>
-    </div>
-
-    <!-- ⭐ ปุ่ม Filter -->
-    <div class="flex gap-3 mb-5">
-
-      <button 
-        @click="filter = 'all'"
-        :class="filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
-        class="px-4 py-2 rounded-lg"
-      >
-        ทั้งหมด
-      </button>
-
-      <button 
-        @click="filter = 'pending'"
-        :class="filter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'"
-        class="px-4 py-2 rounded-lg"
-      >
-        รอดำเนินการ
-      </button>
-
-      <button 
-        @click="filter = 'approved'"
-        :class="filter === 'approved' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'"
-        class="px-4 py-2 rounded-lg"
-      >
-        อนุมัติแล้ว
-      </button>
-
-      <button 
-        @click="filter = 'rejected'"
-        :class="filter === 'rejected' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'"
-        class="px-4 py-2 rounded-lg"
-      >
-        ปฏิเสธ
-      </button>
-
+        </router-link>
+      
+      </div>
     </div>
 
     <!-- Data Table -->
@@ -148,7 +179,13 @@ onMounted(loadData);
                   'bg-red-100 text-red-700': item.status === 'rejected',
                 }"
               >
-                {{ item.status }}
+                {{ 
+                  item.status === 'pending'
+                     ? 'รอดำเนินการ'
+                     : item.status === 'approved'
+                     ? 'อนุมัติแล้ว'
+                     : 'ปฏิเสธ' 
+                }}
               </span>
             </td>
 

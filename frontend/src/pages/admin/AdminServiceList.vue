@@ -3,66 +3,34 @@
     <div class="flex gap-3 mb-4 items-center justify-between">
       <h1 class="text-2xl font-bold text-gray-800">บริหารจัดการบริการสาธารณะ</h1>
 
-        <div class="flex items-center gap-3">
-                <router-link
-                  to="/admin/dashboard"
-                  class="bg-brand-darkBlue text-white px-4 py-2 rounded-lg shadow hover:bg-blue-800 transition"
-                >
-                  กลับหน้าหลัก
-                </router-link>
-
-                <router-link
-                  to="/admin/services/create"
-                  class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                  >
-                     เพิ่มบริการใหม่
-                  </router-link>
-             </div>
-    </div>
-
-    <!-- ปุ่มฟิลเตอร์ -->
-      <div class="flex gap-3 mb-4">
-        <button
-          @click="changeFilter('all')"
-          :class="activeFilter === 'all'
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-200 text-gray-700'"
-          class="px-4 py-2 rounded"
-        >
-          ทั้งหมด
-        </button>
+      <div class="flex items-center gap-3">
+        <select
+        v-model="activeFilter"
+        @change="changeFilter(activeFilter)"
+        class="px-4 py-2 border rounded-lg shadow-sm"
+      >
+        <option value="all">ทั้งหมด</option>
+        <option value="washer">ตู้ซักผ้า</option>
+        <option value="water">ตู้กดน้ำ</option>
+        <option value="other">อื่น ๆ</option>
+      </select>
       
-        <button
-          @click="changeFilter('washer')"
-          :class="activeFilter === 'washer'
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-200 text-gray-700'"
-          class="px-4 py-2 rounded"
+        <router-link
+          to="/admin/services/create"
+          class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+             เพิ่มบริการใหม่
+        </router-link>
+        
+        <router-link
+          to="/admin/dashboard"
+          class="bg-brand-darkBlue text-white px-4 py-2 rounded-lg shadow hover:bg-blue-800 transition"
         >
-          ตู้ซักผ้า
-        </button>
-      
-        <button
-          @click="changeFilter('water')"
-          :class="activeFilter === 'water'
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-200 text-gray-700'"
-          class="px-4 py-2 rounded"
-        >
-          ตู้กดน้ำ
-        </button>
-      
-        <button
-          @click="changeFilter('other')"
-          :class="activeFilter === 'other'
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-200 text-gray-700'"
-          class="px-4 py-2 rounded"
-        >
-          อื่น ๆ
-        </button>
+          กลับหน้าหลัก
+        </router-link>
+        
       </div>
-
+    </div>
 
     <!-- ถ้าไม่มีรายการ -->
     <div v-if="filteredServices.length === 0" class="mt-10 text-gray-500">
@@ -77,7 +45,7 @@
         class="bg-white shadow border rounded-lg p-4 relative"
       >
         <!-- เมนู 3 จุด -->
-        <div class="absolute right-3 top-3 cursor-pointer" @click="openMenu(item.id)">
+        <div class="absolute right-2 top-1 cursor-pointer text-2xl" @click="openMenu(item.id)">
           ⋮
         </div>
 

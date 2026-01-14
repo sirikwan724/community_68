@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.response import Response
 from rest_framework import status, viewsets, permissions, generics
 from django.db import transaction  # เพิ่ม Transaction เพื่อความปลอดภัยข้อมูล
-
+from django.db.models.functions import ExtractYear, ExtractMonth
 from django.contrib.auth import get_user_model
 # นำเข้า Model และ Serializer ที่ต้องใช้
 from .models import RegistrationRequest, News, HeadmanStatus
@@ -17,23 +17,6 @@ from .serializers import (
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 User = get_user_model()
-
-def generate_unique_username(base_name):
-    """สร้าง username จากชื่อเต็ม โดยจัดการให้ไม่ซ้ำกัน"""
-    #  ลบช่องว่างและเปลี่ยนเป็นตัวพิมพ์เล็ก
-    base_username = re.sub(r'[^a-z0-9]', '', base_name.replace(' ', '').lower())
-    
-    #  ตรวจสอบว่า username นี้มีอยู่แล้วหรือไม่
-    if not User.objects.filter(username=base_username).exists():
-        return base_username
-    
-    #  ถ้ามีอยู่แล้ว ให้เพิ่มตัวเลขต่อท้าย
-    i = 1
-    while True:
-        new_username = f"{base_username}{i}"
-        if not User.objects.filter(username=new_username).exists():
-            return new_username
-        i += 1
 
 # ส่วนจัดการข่าวสาร (News)
 class NewsViewSet(viewsets.ModelViewSet):
@@ -147,15 +130,33 @@ def request_list(request):
     serializer = RegistrationRequestSerializer(requests, many=True)
     return Response(serializer.data)
 
-# 📌 ดึงคำขอทั้งหมด (pending + approved + rejected)
+# ดึงคำขอทั้งหมด (pending + approved + rejected)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def request_all(request):
     if request.user.role != "admin":
         return Response({"detail": "คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้"}, status=403)
+    
+    qs = RegistrationRequest.objects.all()
+
+    year = request.query_params.get("year")
+    month = request.query_params.get("month")
+    status_param = request.query_params.get("status")
+
+    if year:
+        qs = qs.filter(created_at__year=int(year))
+
+    if month:
+        qs = qs.filter(created_at__month=int(month))
+
+    if status_param:
+        qs = qs.filter(status=status_param)
+
+    qs = qs.order_by("-created_at")
 
     requests = RegistrationRequest.objects.all().order_by("-id")
-    serializer = RegistrationRequestSerializer(requests, many=True)
+    serializer = RegistrationRequestSerializer(qs, many=True)
+    # serializer = RegistrationRequestSerializer(requests, many=True)
     return Response(serializer.data)
 
 # ดูคำขอรายบุคคล
@@ -178,63 +179,64 @@ def request_detail(request, pk):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def request_approve(request, pk):
-    # 1. ตรวจสอบสิทธิ์ Admin ทันที
     if request.user.role != "admin":
         return Response({"detail": "คุณไม่มีสิทธิ์"}, status=403)
-    
-    # 2. ดึงข้อมูลคำขอ (req) และจัดการ Exception
+
     try:
         req = RegistrationRequest.objects.get(pk=pk)
     except RegistrationRequest.DoesNotExist:
         return Response({"detail": "ไม่พบคำขอ"}, status=404)
 
-    # 3. ตรวจสอบสถานะ (ควรอยู่หลังจากการดึง req)
     if req.status != "pending":
         return Response({"detail": "คำขอนี้ได้รับการพิจารณาแล้ว"}, status=400)
 
-    # 4. กำหนด Username และจัดการ Transaction
+    # ✅ guard สำคัญมาก
+    if not req.username:
+        return Response(
+            {"detail": "คำขอนี้เป็นข้อมูลเก่า ไม่มี username"},
+            status=400
+        )
+
+    # ✅ เช็ก username ซ้ำ
+    if User.objects.filter(username=req.username).exists():
+        return Response(
+            {"detail": "ชื่อผู้ใช้งานนี้ถูกใช้แล้ว"},
+            status=400
+        )
+
     try:
-        # กำหนด username: ใช้ full_name เป็นค่าเริ่มต้น, อนุญาตให้ Admin กำหนดเอง
-        admin_defined_username = request.data.get('username')
-        
-        # ⭐ โค้ดนี้จะใช้ generate_unique_username ที่คุณต้องวางไว้ในไฟล์เดียวกัน
-        if admin_defined_username:
-            final_username = generate_unique_username(admin_defined_username)
-        else:
-            final_username = generate_unique_username(req.full_name)
-
-        # การสำรองข้อมูล (Fallback): ถ้า username ที่สร้างขึ้นมาว่าง ให้ใช้ citizen_id แทน
-        if not final_username:
-            final_username = req.citizen_id
-
         with transaction.atomic():
-            # 1. สร้าง User จริง (Password Hash มาแล้ว ห้าม Hash ซ้ำ)
             user = User(
-                # ⭐ แก้ไขบรรทัดนี้: ใช้ final_username แทน req.citizen_id
-                username=final_username, 
+                username=req.username,
                 full_name=req.full_name,
                 address=req.address,
                 phone=req.phone,
-                citizen_id=req.citizen_id,
+                citizen_id=req.citizen_id,  # ยังเก็บได้ แต่ไม่ใช้ auth
                 house_owner_name=req.house_owner_name,
                 role="user",
                 verified=True,
                 is_active=True
             )
-            user.password = req.password  # Assign hashed password directly
+            user.password = req.password  # password hash มาแล้ว
             user.save()
 
-            # 2. อัพเดทสถานะคำขอ
             req.status = "approved"
             req.save()
 
         return Response(
-            {"message": f"อนุมัติสำเร็จ และสร้างบัญชีผู้ใช้แล้ว (Username: {final_username})", "user_id": user.id, "username": final_username},
+            {
+                "message": "อนุมัติสำเร็จ และสร้างบัญชีผู้ใช้แล้ว",
+                "username": req.username,
+                "user_id": user.id
+            },
             status=200
         )
-        
+
     except Exception as e:
-        return Response({"detail": f"เกิดข้อผิดพลาด: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"detail": f"เกิดข้อผิดพลาด: {str(e)}"},
+            status=500
+        )
 
 # ปฏิเสธคำขอ
 @api_view(["POST"])

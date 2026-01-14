@@ -5,7 +5,19 @@
     <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-3">
     <h1 class="text-2xl font-bold text-gray-800">บริการสาธารณะของหมู่บ้าน</h1>
 
-    <div class="mb-4">
+    <div class="mb-4 flex items-center gap-3">
+
+      <select
+        v-model="filterType"
+        class="px-4 py-2 border rounded-lg shadow-sm
+               focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="all">ทั้งหมด</option>
+        <option value="washer">ตู้ซักผ้า</option>
+        <option value="water">ตู้กดน้ำ</option>
+        <option value="other">อื่น ๆ</option>
+      </select>
+
       <router-link
         to="/"
         class="inline-block bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
@@ -13,37 +25,6 @@
         กลับหน้าหลัก
       </router-link>
     </div>
-    </div>
-
-    <!--  ปุ่มฟิลเตอร์ -->
-    <div class="flex gap-2 mb-6">
-      <button
-        @click="filterType = 'all'"
-        :class="filterType === 'all' ? activeClass : inactiveClass"
-      >
-        ทั้งหมด
-      </button>
-
-      <button
-        @click="filterType = 'washer'"
-        :class="filterType === 'washer' ? activeClass : inactiveClass"
-      >
-        ตู้ซักผ้า
-      </button>
-
-      <button
-        @click="filterType = 'water'"
-        :class="filterType === 'water' ? activeClass : inactiveClass"
-      >
-        ตู้กดน้ำ
-      </button>
-
-      <button
-        @click="filterType = 'other'"
-        :class="filterType === 'other' ? activeClass : inactiveClass"
-      >
-        อื่น ๆ
-      </button>
     </div>
 
     <!-- 🔹 ถ้าไม่มีบริการ -->

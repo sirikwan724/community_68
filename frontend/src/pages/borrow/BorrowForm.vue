@@ -125,14 +125,14 @@ const submit = async () => {
 
 <template>
   <div class="max-w-4xl mx-auto p-6">
-    <h1 class="text-2xl font-bold mb-6">ขออนุญาตยืม</h1>
+    <h1 class="text-2xl font-bold mb-6">ขออนุญาตยืมสิ่งของ/จองสถานที่</h1>
 
     <!-- เลือกประเภท -->
     <div class="mb-6">
       <label class="font-semibold block mb-2">ประเภทการยืม</label>
       <select v-model="borrowType" class="border p-2 w-full">
         <option value="ITEM">ยืมสิ่งของ</option>
-        <option value="LOCATION">ยืมสถานที่</option>
+        <option value="LOCATION">จองสถานที่</option>
       </select>
     </div>
 
@@ -194,7 +194,7 @@ const submit = async () => {
     ========================== -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
       <div>
-        <label class="block mb-1">วัน–เวลาเริ่มยืม</label>
+        <label class="block mb-1">วัน–เวลาเริ่มใช้งาน</label>
         <input
           type="datetime-local"
           v-model="form.start_datetime"
@@ -203,7 +203,7 @@ const submit = async () => {
       </div>
 
       <div>
-        <label class="block mb-1">วัน–เวลาสิ้นสุด</label>
+        <label class="block mb-1">วัน–เวลาสิ้นสุดการใช้งาน</label>
         <input
           type="datetime-local"
           v-model="form.end_datetime"
@@ -212,7 +212,7 @@ const submit = async () => {
       </div>
 
       <div>
-        <label class="block mb-1">วัน–เวลารับของ</label>
+        <label class="block mb-1">วัน–เวลารับของ/รับสถานที่</label>
         <input
           type="datetime-local"
           v-model="form.pickup_datetime"
@@ -221,7 +221,7 @@ const submit = async () => {
       </div>
 
       <div>
-        <label class="block mb-1">วัน–เวลานำมาคืน</label>
+        <label class="block mb-1">วัน–เวลาส่งคืนของ/สถานที่</label>
         <input
           type="datetime-local"
           v-model="form.expected_return_datetime"
@@ -243,13 +243,19 @@ const submit = async () => {
     <!-- ปุ่ม -->
     <button
       @click="submit"
-      class="bg-blue-600 text-white px-6 py-2 rounded"
+      class="w-full bg-blue-600 text-white p-3 rounded-lg shadow hover:bg-blue-700 transition disabled:opacity-50"
     >
       ส่งคำขอ
     </button>
     <button
+        @click="cancelForm"
+        class="w-full bg-gray-200 text-gray-700 mt-4 py-3 rounded hover:bg-gray-300"
+      >
+        ยกเลิก
+      </button>
+    <button
         @click="router.push('/')"
-        class="bg-blue-600 text-white px-6 py-2 rounded"
+        class="w-full mt-3 bg-gray-200 text-gray-700 p-3 rounded-lg shadow hover:bg-gray-300 transition"
       >
         กลับหน้าหลัก
     </button>

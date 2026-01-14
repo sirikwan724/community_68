@@ -9,12 +9,12 @@ const isLoading = ref(true);
 const error = ref('');
 const successMessage = ref('');
 
-// ⭐ NEW: ฟังก์ชันนำทางกลับไปยัง Dashboard
+//  NEW: ฟังก์ชันนำทางกลับไปยัง Dashboard
 const goToDashboard = () => {
     router.push('/admin/dashboard');
 };
 
-// ⭐ ฟังก์ชันดึงรายการข่าวสารทั้งหมด
+//  ฟังก์ชันดึงรายการข่าวสารทั้งหมด
 const fetchAllNews = async () => {
     isLoading.value = true;
     error.value = '';
@@ -62,12 +62,12 @@ const deleteNews = async (newsId) => {
 
 onMounted(fetchAllNews);
 
-// ⭐ ฟังก์ชันนำทางไปหน้าแก้ไข
+//  ฟังก์ชันนำทางไปหน้าแก้ไข
 const editNews = (newsId) => {
     router.push(`/admin/news/${newsId}/edit`);
 };
 
-// ⭐ ฟังก์ชันนำทางไปหน้าสร้างข่าว
+//  ฟังก์ชันนำทางไปหน้าสร้างข่าว
 const goToCreateNews = () => {
     router.push('/admin/news/create');
 };
@@ -87,17 +87,17 @@ const goToCreateNews = () => {
             <div class="flex items-center gap-3">
 
                 <button
-                  @click="goToDashboard"
-                  class="flex items-center bg-[#0F1A2C] text-white px-5 py-2 rounded-lg shadow hover:bg-[#152238] transition"
-                >
-                  กลับหน้าหลัก
-                </button>
-
-                <button
                   @click="goToCreateNews"
                   class="bg-[#0F1A2C] text-white px-5 py-2 rounded-lg shadow hover:bg-[#152238] transition"
                 >
                   + สร้างข่าวสารใหม่
+                </button>
+
+                <button
+                  @click="goToDashboard"
+                  class="flex items-center bg-[#0F1A2C] text-white px-5 py-2 rounded-lg shadow hover:bg-[#152238] transition"
+                >
+                  กลับหน้าหลัก
                 </button>
 
             </div>

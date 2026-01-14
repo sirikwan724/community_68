@@ -61,7 +61,7 @@ const submitEdit = async () => {
     });
 
     alert("แก้ไขรายงานสำเร็จ");
-    router.push("/report/list");
+    router.push("/my-history");    
 };
 </script>
 

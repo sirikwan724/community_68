@@ -5,7 +5,7 @@ import axios from 'axios';
 
 const router = useRouter();
 
-// ⭐ ตัวแปรสำหรับเก็บข้อมูลฟอร์ม
+//  ตัวแปรสำหรับเก็บข้อมูลฟอร์ม
 const title = ref('');
 const content = ref('');
 const imageFile = ref(null);
@@ -13,12 +13,12 @@ const isLoading = ref(false);
 const error = ref('');
 const successMessage = ref('');
 
-// ⭐ ฟังก์ชันนำทางกลับไปยัง Dashboard หลัก
+//  ฟังก์ชันนำทางกลับไปยัง Dashboard หลัก
 const goToDashboard = () => {
     router.push('/admin/dashboard');
 };
 
-// ⭐ NEW: ฟังก์ชันยกเลิกและกลับไปหน้าก่อนหน้า
+//  NEW: ฟังก์ชันยกเลิกและกลับไปหน้าก่อนหน้า
 const cancelAndGoBack = () => {
     if (confirm('ยืนยันที่จะยกเลิกและละทิ้งข้อมูลที่กรอกหรือไม่?')) {
         // ใช้ router.back() เพื่อกลับไปหน้าจอก่อนหน้า
@@ -26,12 +26,12 @@ const cancelAndGoBack = () => {
     }
 };
 
-// ⭐ ฟังก์ชันจัดการไฟล์รูปภาพ
+//  ฟังก์ชันจัดการไฟล์รูปภาพ
 const handleImageUpload = (event) => {
     imageFile.value = event.target.files[0];
 };
 
-// ⭐ ฟังก์ชันส่งฟอร์มไปยัง API
+//  ฟังก์ชันส่งฟอร์มไปยัง API
 const submitNews = async () => {
     // 1. ตรวจสอบข้อมูลเบื้องต้น
     if (!title.value || !content.value) {

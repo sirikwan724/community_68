@@ -168,6 +168,9 @@ const cancelEdit = () => {
         </div>
 
         <div class="mt-8 flex justify-center gap-4">
+          <button @click="router.push('/')" class="btn-secondary">
+            กลับหน้าหลัก
+          </button>
           <button @click="editing = true" class="btn-primary">
              แก้ไขข้อมูล
           </button>

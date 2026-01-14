@@ -97,7 +97,7 @@ const cancelEdit = () => {
                 @click="editing = true"
                 class="mb-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2"
             >
-                ✏️ แก้ไขข้อมูล
+                 แก้ไขข้อมูล
             </button>
         </div>
 

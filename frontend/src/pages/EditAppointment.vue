@@ -36,7 +36,7 @@ const placeOptions = [
 const loadAppointment = async () => {
   try {
     const res = await axios.get(
-      `http://localhost:8000/api/appointments/${id}/`,
+      `http://localhost:8000/api/appointments/my/${id}/`,
       {
         headers: { Authorization: `Bearer ${token}` },
       }
@@ -60,7 +60,7 @@ const loadAppointment = async () => {
 const updateAppointment = async () => {
   try {
     await axios.patch(
-      `http://localhost:8000/api/appointments/${id}/update/`,
+      `http://localhost:8000/api/appointments/my/${id}/`,
       form.value,
       { headers: { Authorization: `Bearer ${token}` } }
     );

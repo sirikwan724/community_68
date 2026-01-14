@@ -157,12 +157,12 @@ const submitForm = async () => {
         </button>
       </form>
 
-      <!-- ⭐ Success Message -->
+      <!--  Success Message -->
       <p v-if="success" class="text-green-600 font-medium text-center mt-4">
         {{ success }}
       </p>
 
-      <!-- ⭐ Error Message -->
+      <!--  Error Message -->
       <p v-if="error" class="text-red-600 font-medium text-center mt-4">
         {{ error }}
       </p>

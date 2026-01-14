@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
 
@@ -12,6 +12,27 @@ const loading = ref(true);
 const token = localStorage.getItem("access");
 const role = localStorage.getItem("role");
 
+const serviceStatusText = computed(() => {
+  if (!service.value) return "-";
+  return serviceStatusLabel[service.value.status] || service.value.status;
+});
+
+const serviceStatusLabel = {
+  normal: "พร้อมให้บริการ",
+  maintenance: "อยู่ระหว่างซ่อมบำรุง",
+  closed: "งดให้บริการ",
+};
+
+const serviceStatusClass = computed(() => {
+  if (!service.value) return "";
+
+  return {
+    normal: "text-green-600",
+    maintenance: "text-yellow-600",
+    closed: "text-red-600",
+  }[service.value.status];
+});
+
 onMounted(async () => {
   try {
     const res = await axios.get(`http://localhost:8000/api/services/${route.params.id}/`);
@@ -22,17 +43,12 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
 </script>
 
 <template>
   <div class="max-w-3xl mx-auto p-6">
-    <button
-      @click="$router.back()"
-      class="text-blue-600 mb-4 hover:underline"
-    >
-       กลับ
-    </button>
-
+    
     <div v-if="loading">กำลังโหลด...</div>
 
     <div v-else-if="service" class="bg-white p-6 shadow rounded-lg">
@@ -48,17 +64,26 @@ onMounted(async () => {
       <p class="text-gray-700"><strong>สถานที่:</strong> {{ service.location }}</p>
       <p class="text-gray-700">
         <strong>สถานะบริการ:</strong> 
-        <span class="text-blue-600">{{ service.status }}</span>
+        <span class="px-3 py-1 rounded-full text-s font-bold" :class="serviceStatusClass">{{ serviceStatusText }}</span>
       </p>
 
       <!-- ผู้ใช้ที่มีบัญชี = รายงานปัญหา -->
-      <router-link
+      <div class="flex items-center gap-3 mt-6">
+        <router-link
+          v-if="token && role === 'user'"
+          to="/report/create"
+          class="inline-block px-5 py-2 bg-brand-darkBlue text-white rounded-lg shadow hover:bg-blue-900 transition"
+        >
+           รายงานปัญหาบริการนี้
+        </router-link>
+        <router-link
         v-if="token && role === 'user'"
-        to="/report/create"
-        class="block mt-5 bg-red-500 text-white p-3 rounded text-center hover:bg-red-600"
-      >
-         รายงานปัญหาบริการนี้
-      </router-link>
+          to="/public-services"
+          class="inline-block px-5 py-2 bg-brand-darkBlue text-white rounded-lg shadow hover:bg-blue-900 transition"
+        >
+           กลับไปหน้าหลัก
+        </router-link>
+      </div>
 
       <!-- Admin = ปุ่มแก้ไข -->
       <router-link

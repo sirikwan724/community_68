@@ -31,7 +31,7 @@
           to="/"
           class="inline-block px-5 py-2 bg-brand-darkBlue text-white rounded-lg shadow hover:bg-blue-900 transition"
         >
-          ← กลับไปหน้าข่าวสาร
+           กลับไปหน้าหลัก
         </router-link>
       </div>
 

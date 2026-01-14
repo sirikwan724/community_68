@@ -1,15 +1,84 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { BorrowService } from "@/services/borrow.service";
 
 const borrows = ref([]);
 const loading = ref(true);
+
+const filterMonth = ref("all");   // 1–12 หรือ all
+const filterYear = ref("all");    // 2568 / 2569 หรือ all
+const filterStatus = ref("all");  // pending / approved / ...
 
 const loadBorrows = async () => {
   loading.value = true;
   const res = await BorrowService.adminList();
   borrows.value = res.data;
   loading.value = false;
+};
+
+const thaiMonths = [
+  "", // index 0 ไม่ใช้
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
+];
+
+const statusLabel = {
+  pending: "รอดำเนินการ",
+  approved: "อนุมัติแล้ว",
+  rejected: "ปฏิเสธ",
+  return_requested: "รอรับคืน",
+  returned: "คืนแล้ว",
+};
+
+const statusClass = {
+  pending: "bg-yellow-200 text-yellow-800",
+  approved: "bg-green-200 text-green-800",
+  rejected: "bg-red-200 text-red-800",
+  return_requested: "bg-orange-200 text-orange-800",
+  returned: "bg-green-300 text-green-900",
+};
+
+const filteredBorrows = computed(() => {
+  return borrows.value.filter((b) => {
+    const d = new Date(b.created_at);
+    const month = d.getMonth() + 1;
+    const year = d.getFullYear() + 543; // พ.ศ.
+
+    if (filterMonth.value !== "all" && month !== Number(filterMonth.value)) {
+      return false;
+    }
+
+    if (filterYear.value !== "all" && year !== Number(filterYear.value)) {
+      return false;
+    }
+
+    if (filterStatus.value !== "all" && b.status !== filterStatus.value) {
+      return false;
+    }
+
+    return true;
+  });
+});
+
+const formatDT = (dt) => {
+  if (!dt) return "-";
+  const d = new Date(dt);
+  if (isNaN(d.getTime())) return "-";
+
+  return d.toLocaleString("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 };
 
 const approve = async (id) => {
@@ -34,9 +103,38 @@ onMounted(loadBorrows);
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto p-6">
-    <div class="flex justify-between items-center mb-6">
+  <div class="p-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-3">
       <h1 class="text-2xl font-bold text-gray-800">จัดการคำขอยืม / จอง</h1>
+
+      <div class="flex flex-wrap items-center gap-3">
+
+        <!-- ปี -->
+        <select v-model="filterYear" class="border px-3 py-2 rounded">
+          <option value="all">ทุกปี</option>
+          <option :value="2568">2568</option>
+          <option :value="2569">2569</option>
+        </select>
+      
+        <!-- เดือน -->
+        <select v-model="filterMonth" class="border px-3 py-2 rounded">
+          <option value="all">ทุกเดือน</option>
+          <option v-for="m in 12" :key="m" :value="m">
+            {{ thaiMonths[m] }}
+          </option>
+        </select>
+      
+        <!-- สถานะ -->
+        <select v-model="filterStatus" class="border px-3 py-2 rounded">
+          <option value="all">ทุกสถานะ</option>
+          <option value="pending">รอดำเนินการ</option>
+          <option value="approved">อนุมัติแล้ว</option>
+          <option value="return_requested">รอรับคืน</option>
+          <option value="returned">คืนแล้ว</option>
+          <option value="rejected">ปฏิเสธ</option>
+        </select>
+      
+      </div>
 
       <router-link
         to="/admin/dashboard"
@@ -49,33 +147,29 @@ onMounted(loadBorrows);
     <div v-if="loading">กำลังโหลด...</div>
 
     <div
-      v-for="b in borrows"
+      v-for="b in filteredBorrows"
       :key="b.id"
       class="border rounded p-4 mb-4 bg-white"
     >
-      <div class="flex justify-between">
+      <div class="flex items-center gap-3">
         <div>
           <h3 class="font-bold">
             <span v-if="b.borrow_type === 'ITEM'">ยืมสิ่งของ</span>
             <span v-else>จองสถานที่</span>
           </h3>
-          <p class="text-sm text-gray-500">
-            ผู้ขอ: {{ b.user_name }}
-          </p>
+          <p class="text-sm text-gray-600">ชื่อผู้ขอ: {{ b.borrower_name }}</p>
+          <p class="text-sm text-gray-600">เบอร์โทร: {{ b.borrower_phone }}</p>
+
+          <p v-if="b.purpose" class="text-sm text-gray-600 mt-1">วัตถุประสงค์: {{ b.purpose }}</p>
         </div>
 
         <span
-          class="px-2 py-1 rounded text-white text-sm"
-          :class="{
-            'bg-yellow-500': b.status === 'pending',
-            'bg-blue-500': b.status === 'approved',
-            'bg-orange-500': b.status === 'return_requested',
-            'bg-green-600': b.status === 'returned',
-            'bg-red-600': b.status === 'rejected',
-          }"
+          class="px-3 py-1 rounded-md text-xs font-bold"
+          :class="statusClass[b.status]"
         >
-          {{ b.status }}
+          {{ statusLabel[b.status] }}
         </span>
+
       </div>
 
       <!-- รายละเอียด -->
@@ -92,8 +186,11 @@ onMounted(loadBorrows);
       </div>
 
       <p class="text-sm text-gray-500 mt-2">
-        ระยะเวลา: {{ b.start_datetime }} – {{ b.end_datetime }}
+        ระยะเวลา: {{ formatDT(b.start_datetime) }} – {{ formatDT(b.end_datetime) }}
       </p>
+
+      <p class="text-sm text-gray-500">รับของ/สถานที่: {{ formatDT(b.pickup_datetime) }}</p>
+      <p class="text-sm text-gray-500">วันส่งคืน: {{ formatDT(b.expected_return_datetime) }}</p>
 
       <!-- ปุ่ม -->
       <div class="mt-4 flex gap-3">

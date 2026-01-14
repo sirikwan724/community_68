@@ -166,6 +166,15 @@ const submitForm = async () => {
         <span v-if="!loading">ส่งคำร้อง</span>
         <span v-else>กำลังส่ง...</span>
       </button>
+      
+      <!-- ปุ่มยกเลิก -->
+      <button
+        @click="cancelForm"
+        class="w-full bg-gray-200 text-gray-700 mt-4 py-3 rounded hover:bg-gray-300"
+      >
+        ยกเลิก
+      </button>
+      
       <button
         type="button"
         @click="router.push('/')"

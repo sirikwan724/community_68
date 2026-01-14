@@ -43,6 +43,16 @@ class AppointmentSerializer(serializers.ModelSerializer):
     user_data = serializers.SerializerMethodField()
     user_name = serializers.CharField(source="user.full_name", read_only=True)
     
+    meet_with_label = serializers.CharField(
+        source="get_meet_with_display", read_only=True
+    )
+    meeting_place_label = serializers.CharField(
+        source="get_meeting_place_display", read_only=True
+    )
+    status_label = serializers.CharField(
+        source="get_status_display", read_only=True
+    )
+    
     class Meta:
         model = Appointment
         fields = "__all__"

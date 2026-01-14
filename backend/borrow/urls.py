@@ -16,4 +16,7 @@ urlpatterns = [
     path('admin/<int:pk>/approve/', AdminApproveBorrowView.as_view()),
     path('admin/<int:pk>/reject/', AdminRejectBorrowView.as_view()),
     path('admin/<int:pk>/confirm-return/', AdminConfirmReturnView.as_view()),
+    path("admin/stats/borrow-items/", AdminBorrowItemStatsView.as_view()),
+    path("admin/stats/borrow-locations/", AdminBorrowLocationStatsView.as_view()),
+    path("admin/stats/summary/", AdminBorrowSummaryStatsView.as_view()),
 ]

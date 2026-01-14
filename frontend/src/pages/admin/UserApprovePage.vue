@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import axios from "axios";
-// ⭐ 1. Import useRouter เพื่อใช้ในการเปลี่ยนเส้นทาง (ถ้าจำเป็น)
+// Import useRouter เพื่อใช้ในการเปลี่ยนเส้นทาง (ถ้าจำเป็น)
 import { useRouter } from "vue-router";
 
 const pendingUsers = ref([]);
@@ -9,7 +9,38 @@ const loading = ref(true);
 const error = ref(null);
 const router = useRouter(); 
 
-// ⭐ 2. ฟังก์ชันเรียก API ดึงคำขอลงทะเบียน
+// =======================
+// ฟิลเตอร์ ปี / เดือน
+// =======================
+const selectedYear = ref("");
+const selectedMonth = ref("");
+const selectedStatus = ref("");
+
+// =======================
+// ปี (อัตโนมัติ)
+// =======================
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+// =======================
+// เดือน (อัตโนมัติ)
+// =======================
+const months = [
+  { value: 1, label: "มกราคม" },
+  { value: 2, label: "กุมภาพันธ์" },
+  { value: 3, label: "มีนาคม" },
+  { value: 4, label: "เมษายน" },
+  { value: 5, label: "พฤษภาคม" },
+  { value: 6, label: "มิถุนายน" },
+  { value: 7, label: "กรกฎาคม" },
+  { value: 8, label: "สิงหาคม" },
+  { value: 9, label: "กันยายน" },
+  { value: 10, label: "ตุลาคม" },
+  { value: 11, label: "พฤศจิกายน" },
+  { value: 12, label: "ธันวาคม" },
+];
+
+// เรียก API ดึงคำขอลงทะเบียน
 const fetchRequests = async () => {
     loading.value = true;
     error.value = null;
@@ -23,17 +54,22 @@ const fetchRequests = async () => {
     }
 
     try {
-        // ⭐ API Call จริง: ดึงข้อมูลจาก Backend ที่เราสร้างไว้
+        const params = {};
+        if (selectedYear.value) params.year = selectedYear.value;
+        if (selectedMonth.value) params.month = selectedMonth.value;
+        if (selectedStatus.value) params.status = selectedStatus.value;
+        // API Call จริง: ดึงข้อมูลจาก Backend ที่เราสร้างไว้
         const res = await axios.get(
             "http://localhost:8000/api/accounts/admin/requests/all/", 
             {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
+                params: params,
             }
         );
         
-        // ⭐ 3. ข้อมูลที่ได้จะถูกเก็บไว้ใน pendingUsers
+        // ข้อมูลที่ได้จะถูกเก็บไว้ใน pendingUsers
         pendingUsers.value = res.data;
         
     } catch (err) {
@@ -105,15 +141,48 @@ const rejectUser = async (user) => {
         <div class="max-w-5xl mx-auto">
             
             <div class="mb-6 flex items-center justify-between">
-                <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
                     คำขอลงทะเบียนผู้ใช้ใหม่
                 </h1>
-                <router-link 
-                   to="/admin/dashboard"
-                   class="bg-brand-darkBlue text-white px-4 py-2 rounded-lg shadow hover:bg-blue-800 transition"
-                >
-                   กลับหน้าหลัก
-                </router-link>
+
+                <div class="flex items-center gap-3">
+                  <select v-model="selectedYear" class="border rounded px-5 py-2">
+                    <option value="">ทุกปี</option>
+                    <option v-for="year in years" :key="year" :value="year">
+                      {{ year }}
+                    </option>
+                  </select>
+                  <select v-model="selectedMonth" class="border rounded px-5 py-2">
+                    <option value="">ทุกเดือน</option>
+                    <option
+                      v-for="m in months"
+                      :key="m.value"
+                      :value="m.value"
+                    >
+                      {{ m.label }}
+                    </option>
+                  </select>
+                  <select v-model="selectedStatus" class="border rounded px-5 py-2">
+                    <option value="">ทุกสถานะ</option>
+                    <option value="pending">รออนุมัติ</option>
+                    <option value="approved">อนุมัติแล้ว</option>
+                    <option value="rejected">ปฏิเสธแล้ว</option>
+                  </select>
+              
+                  <button
+                    @click="fetchRequests"
+                    class="bg-blue-600 text-white px-4 py-2 rounded"
+                  >
+                    ค้นหา
+                  </button>
+
+                  <router-link 
+                     to="/admin/dashboard"
+                     class="bg-brand-darkBlue text-white px-4 py-2 rounded-lg shadow hover:bg-blue-800 transition"
+                  >
+                     กลับหน้าหลัก
+                  </router-link>
+                </div>
             </div>
 
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -138,16 +207,16 @@ const rejectUser = async (user) => {
                             <tr>
                                 <th class="px-6 py-4">วันที่สมัคร</th>
                                 <th class="px-6 py-4">ชื่อ-นามสกุล</th>
-                                <th class="px-6 py-4">ที่อยู่ / บัตร ปชช.</th>
+                                <th class="px-6 py-4">ที่อยู่ / รหัสทะเบียนบ้าน</th>
                                 <th class="px-6 py-4">เบอร์โทร</th>
                                 <th class="px-6 py-4">สถานะ</th>
-                                <th class="px-6 py-4 text-center">จัดการ</th>
+                                <th class="px-6 py-4 text-center">อนุมัติ/ปฏิเสธ</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             <tr v-for="user in pendingUsers" :key="user.id" class="hover:bg-gray-50 transition">
                                 <td class="px-6 py-4 whitespace-nowrap text-gray-500">
-                                    {{ new Date(user.id * 1000).toLocaleDateString('th-TH') }} 
+                                    {{ user.created_at_formatted }} 
                                     </td>
                                 <td class="px-6 py-4 font-medium text-gray-900">
                                     {{ user.full_name }} </td>
@@ -181,7 +250,7 @@ const rejectUser = async (user) => {
 
                                 <td class="px-6 py-4 flex justify-center gap-2">
 
-    <!-- 🌟 แสดงปุ่มเฉพาะคำขอที่รออนุมัติ -->
+    <!--  แสดงปุ่มเฉพาะคำขอที่รออนุมัติ -->
     <template v-if="user.status === 'pending'">
         <button 
             @click="approveUser(user)"

@@ -73,7 +73,7 @@ onMounted(loadData);
 
 <template>
   <div class="p-6">
-    <h1 class="text-2xl font-bold mb-4">📌 รายงานหมู่บ้าน (กำลังดำเนินการ)</h1>
+    <h1 class="text-2xl font-bold mb-4"> รายงานหมู่บ้าน (กำลังดำเนินการ)</h1>
 
     <router-link 
         to="/admin/dashboard" 

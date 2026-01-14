@@ -91,7 +91,7 @@ def my_reports(request):
 # =====================================================
 # 5) USER ยกเลิกรายงาน
 # =====================================================
-@api_view(["DELETE"])
+@api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def report_cancel(request, pk):
     try:
@@ -100,10 +100,12 @@ def report_cancel(request, pk):
         return Response({"detail": "ไม่พบรายงานนี้"}, status=404)
 
     if report.status != "pending":
-        return Response({"detail": "ไม่สามารถยกเลิกได้"}, status=400)
+        return Response({"detail": "ไม่สามารถยกเลิกรายงานนี้ได้"}, status=400)
 
-    report.delete()
-    return Response({"message": "ยกเลิกคำร้องสำเร็จ"}, status=200)
+    report.status = "canceled"
+    report.save()
+
+    return Response({"message": "ยกเลิกรายงานสำเร็จ"}, status=200)
 
 
 # =====================================================
@@ -539,11 +541,11 @@ def add_appointment_note(request, pk):
 
     return Response({"message": "เพิ่มหมายเหตุสำเร็จ"}, status=200)
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def create_appointment(request):
-    serializer = AppointmentSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save(user=request.user)
-        return Response(serializer.data, status=201)
-    return Response(serializer.errors, status=400)
+# @api_view(["POST"])
+# @permission_classes([IsAuthenticated])
+# def create_appointment(request):
+#     serializer = AppointmentSerializer(data=request.data)
+#     if serializer.is_valid():
+#         serializer.save(user=request.user)
+#         return Response(serializer.data, status=201)
+#     return Response(serializer.errors, status=400)

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
 
@@ -11,6 +11,50 @@ const requests = ref([]);
 const merged = ref([]);
 const appointments = ref([]);
 const borrows = ref([]);
+
+const filterMonth = ref(""); // "01" - "12"
+const filterYear = ref("");  // "2024", "2025"
+
+const thaiMonths = [
+  { value: "01", label: "มกราคม" },
+  { value: "02", label: "กุมภาพันธ์" },
+  { value: "03", label: "มีนาคม" },
+  { value: "04", label: "เมษายน" },
+  { value: "05", label: "พฤษภาคม" },
+  { value: "06", label: "มิถุนายน" },
+  { value: "07", label: "กรกฎาคม" },
+  { value: "08", label: "สิงหาคม" },
+  { value: "09", label: "กันยายน" },
+  { value: "10", label: "ตุลาคม" },
+  { value: "11", label: "พฤศจิกายน" },
+  { value: "12", label: "ธันวาคม" },
+];
+
+const statusLabel = {
+  pending: "รอดำเนินการ",
+  processing: "กำลังดำเนินการ",
+  approved: "อนุมัติแล้ว",
+  rejected: "ปฏิเสธ",
+  canceled: "ยกเลิกแล้ว",
+  cancelled: "ยกเลิกแล้ว",
+  resolved: "เสร็จสิ้น",
+  done: "เสร็จสิ้น",
+  return_requested: "แจ้งคืนแล้ว",
+  returned: "คืนแล้ว",
+};
+
+const statusClass = {
+  pending: "bg-yellow-200 text-yellow-800",
+  processing: "bg-blue-200 text-blue-800",
+  approved: "bg-green-200 text-green-800",
+  rejected: "bg-red-200 text-red-800",
+  canceled: "bg-gray-300 text-gray-700",
+  cancelled: "bg-gray-300 text-gray-700",
+  resolved: "bg-green-200 text-green-800",
+  done: "bg-green-200 text-green-800",
+  return_requested: "bg-orange-200 text-orange-800",
+  returned: "bg-green-300 text-green-900",
+};
 
 const placeLabel = {
   temple: "วัด",
@@ -113,22 +157,7 @@ const loadBorrows = async () => {
       { headers: { Authorization: `Bearer ${getToken()}` } }
     );
 
-    borrows.value = res.data.map((b) => ({
-      id: b.id,
-      type: "borrow",
-      title: b.borrow_type === "ITEM" ? "ยืมสิ่งของ" : "ยืมสถานที่",
-      detail:
-        b.borrow_type === "ITEM"
-          ? b.items
-              .map(
-                (i) => `${i.item_name} × ${i.quantity} ${i.unit}`
-              )
-              .join(", ")
-          : b.location?.name || "-",
-      status: b.status,
-      created_at: b.created_at,
-      raw: b, // เก็บ object เต็มไว้ใช้ต่อ
-    }));
+    borrows.value = res.data; 
   } catch (err) {
     console.error("โหลดประวัติการยืมผิดพลาด", err);
   }
@@ -154,6 +183,23 @@ const requestReturn = async (id) => {
   }
 };
 
+const cancelBorrow = async (id) => {
+  if (!confirm("ต้องการยกเลิกคำขอนี้หรือไม่?")) return;
+
+  try {
+    await axios.patch(
+      `http://localhost:8000/api/borrow/my/${id}/cancel/`,
+      {},
+      { headers: { Authorization: `Bearer ${getToken()}` } }
+    );
+
+    alert("ยกเลิกคำขอเรียบร้อย");
+    loadBorrows();
+  } catch (err) {
+    alert("ไม่สามารถยกเลิกได้");
+  }
+};
+
 // ---------------------------
 // รวมข้อมูลทั้งหมด
 // ---------------------------
@@ -161,17 +207,31 @@ const mergeAll = () => {
   const formattedAppointments = appointments.value.map(ap => ({
     id: ap.id,
     type: "appointment",
-    title: placeLabel[ap.meeting_place],  // แสดงชื่อสถานที่ (ภาษาไทย)
+    title: placeLabel[ap.meeting_place],
     detail: ap.reason,
     status: ap.status,
-    created_at: ap.date
+    created_at: ap.created_at,
+  }));
+
+  const formattedBorrows = borrows.value.map(b => ({
+    id: b.id,
+    type: "borrow",   
+    title: b.borrow_type === "ITEM" ? "ยืมสิ่งของ" : "จองสถานที่",
+    detail:
+      b.borrow_type === "ITEM"
+        ? b.items
+            .map(i => `${i.item_name} × ${i.quantity} ${i.unit}`)
+            .join(", ")
+        : `สถานที่: ${b.location_name}`,
+    status: b.status,
+    created_at: b.created_at,
   }));
 
   merged.value = [
     ...reports.value,
     ...requests.value,
     ...formattedAppointments,
-    ...borrows.value,
+    ...formattedBorrows,   
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 };
 
@@ -182,7 +242,9 @@ const cancelReport = async (id) => {
   if (!confirm("ต้องการยกเลิกคำร้องนี้หรือไม่?")) return;
 
   try {
-    await axios.delete(`http://localhost:8000/api/reports/${id}/cancel/`, {
+    await axios.patch(`http://localhost:8000/api/reports/${id}/cancel/`,       
+      {},
+      {
       headers: { Authorization: `Bearer ${getToken()}` },
     });
 
@@ -223,7 +285,7 @@ const cancelAppointment = async (id) => {
 
   try {
     await axios.patch(
-      `http://localhost:8000/api/appointments/${id}/cancel/`,
+      `http://localhost:8000/api/appointments/my/${id}/cancel/`,
       {},
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -246,6 +308,7 @@ onMounted(async () => {
   await loadBorrows(); 
   mergeAll();
 });
+
 </script>
 
 <template>
@@ -302,7 +365,7 @@ onMounted(async () => {
           : 'text-gray-500'"
         class="pb-2"
       >
-        การยืม
+        การยืม/จอง
       </button>
 
       <button
@@ -335,14 +398,10 @@ onMounted(async () => {
           <h3 class="font-bold text-lg">{{ item.title }}</h3>
 
           <span
-            class="px-2 py-1 rounded text-white text-sm"
-            :class="{
-              'bg-yellow-500': item.status === 'pending',
-              'bg-blue-500': item.status === 'processing',
-              'bg-green-600': item.status === 'resolved',
-            }"
+            class="px-3 py-1 rounded-full text-xs font-bold"
+            :class="statusClass[item.status]"
           >
-            {{ item.status }}
+            {{ statusLabel[item.status] }}
           </span>
         </div>
 
@@ -389,15 +448,10 @@ onMounted(async () => {
           <h3 class="font-bold text-lg">{{ item.title }}</h3>
 
           <span
-            class="px-2 py-1 rounded text-white text-sm"
-            :class="{
-              'bg-yellow-500': item.status === 'pending',
-              'bg-green-600': item.status === 'approved',
-              'bg-red-600': item.status === 'rejected',
-              'bg-purple-600': item.status === 'done',
-            }"
+            class="px-3 py-1 rounded-full text-xs font-bold"
+            :class="statusClass[item.status]"
           >
-            {{ item.status }}
+            {{ statusLabel[item.status] }}
           </span>
         </div>
 
@@ -440,7 +494,7 @@ onMounted(async () => {
         :key="ap.id"
         class="border rounded-md p-4 mb-4"
       >
-
+      
       <p class="font-bold text-lg">
           ต้องการพบ: {{ targetLabel[ap.meet_with] }}
       </p>
@@ -456,13 +510,9 @@ onMounted(async () => {
         <!-- Status -->
         <span
           class="px-3 py-1 rounded-full text-xs font-bold"
-          :class="{
-            'bg-yellow-200 text-yellow-800': ap.status === 'pending',
-            'bg-green-200 text-green-800': ap.status === 'approved',
-            'bg-red-200 text-red-800': ap.status === 'rejected',
-          }"
+          :class="statusClass[ap.status]"
         >
-          {{ ap.status }}
+          {{ statusLabel[ap.status] }}
         </span>
 
         <!-- ปุ่มเฉพาะ pending -->
@@ -485,7 +535,7 @@ onMounted(async () => {
     </div>
 
     <!-- ========================= -->
-    <!--        การยืม             -->
+    <!--        การยืม/จอง             -->
     <!-- ========================= -->
     <div v-if="activeTab === 'borrows'">
       <div v-if="borrows.length === 0" class="text-gray-500">
@@ -505,15 +555,9 @@ onMounted(async () => {
 
           <span
             class="px-2 py-1 rounded text-white text-sm"
-            :class="{
-              'bg-yellow-500': item.status === 'pending',
-              'bg-blue-500': item.status === 'approved',
-              'bg-orange-500': item.status === 'return_requested',
-              'bg-green-600': item.status === 'returned',
-              'bg-red-600': item.status === 'rejected',
-            }"
+            :class="statusClass[item.status]"
           >
-            {{ item.status }}
+            {{ statusLabel[item.status] }}
           </span>
         </div>
 
@@ -606,22 +650,16 @@ onMounted(async () => {
             <span v-if="item.type === 'report'">รายงานปัญหา: </span>
             <span v-else-if="item.type === 'request'">ขอความอนุเคราะห์: </span>
             <span v-else-if="item.type === 'appointment'">นัดหมาย: </span>
+            <span v-else-if="item.type === 'borrow'">การยืม/จอง: </span>
 
             {{ item.title }}
           </h3>
 
           <span
-            class="px-2 py-1 rounded text-white text-sm"
-            :class="{
-              'bg-yellow-500': item.status === 'pending',
-              'bg-blue-500': item.status === 'processing',
-              'bg-green-600': item.status === 'resolved',
-              'bg-green-700': item.status === 'approved',
-              'bg-red-600': item.status === 'rejected',
-              'bg-purple-600': item.status === 'done',
-            }"
+            class="px-3 py-1 rounded-full text-xs font-bold"
+            :class="statusClass[item.status]"
           >
-            {{ item.status }}
+            {{ statusLabel[item.status] }}
           </span>
 
         </div>
