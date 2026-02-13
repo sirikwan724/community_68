@@ -53,6 +53,9 @@ INSTALLED_APPS = [
     'publicservice', # บริการสาธารณะ
 
     'borrow', # ยืม-คืน อุปกรณ์
+    
+    'village', # ข้อมูลหมู่บ้าน
+    
 ]
 
 MIDDLEWARE = [

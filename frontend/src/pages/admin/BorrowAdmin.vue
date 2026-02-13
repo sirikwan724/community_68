@@ -133,7 +133,6 @@ onMounted(loadBorrows);
           <option value="returned">คืนแล้ว</option>
           <option value="rejected">ปฏิเสธ</option>
         </select>
-      
       </div>
 
       <router-link

@@ -57,7 +57,7 @@ const submitForm = async () => {
 
       <!-- Back -->
       <router-link to="/" class="text-gray-600 flex items-center gap-2 hover:text-brand-darkBlue mb-6">
-        <span class="text-xl">←</span> กลับหน้าหลัก
+         กลับหน้าหลัก
       </router-link>
 
       <!-- Title -->

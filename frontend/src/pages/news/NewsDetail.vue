@@ -17,7 +17,7 @@
 
       <!-- วันที่ -->
       <div class="text-sm text-gray-500 mb-6">
-        เผยแพร่เมื่อ: {{ news.created_at }}
+        เผยแพร่เมื่อ: {{ formatThaiDate(news.created_at) }}
       </div>
 
       <!-- เนื้อหา -->
@@ -47,6 +47,21 @@ import axios from "axios";
 const route = useRoute();
 const news = ref({});
 
+const formatThaiDate = (dateString) => {
+  if (!dateString) return "";
+
+  const date = new Date(dateString);
+
+  return new Intl.DateTimeFormat("th-TH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Bangkok",
+  }).format(date);
+};
+
 onMounted(async () => {
   const id = route.params.id;
   try {
@@ -59,7 +74,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* ใช้แบรนด์สีของคุณ */
 .bg-brand-softYellow {
   background-color: #faf7dc;
 }

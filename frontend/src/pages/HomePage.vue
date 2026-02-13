@@ -81,7 +81,16 @@ const logout = () => {
 
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
 
-      <!-- เมนูบริการสาธารณะ -->
+          <!-- ข้อมูลชุมชน -->
+          <router-link
+            to="/village"
+            class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition
+                   text-center border-t-4 border-blue-500"
+          >
+            <p class="font-medium text-gray-700">ข้อมูลชุมชน</p>
+          </router-link>
+
+          <!-- เมนูบริการสาธารณะ -->
           <router-link
             to="/public-services"
             class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition text-center border-t-4 border-yellow-500"
@@ -157,6 +166,15 @@ const logout = () => {
       </h2>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+
+        <!-- ข้อมูลชุมชน -->
+        <router-link
+          to="/village"
+          class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition
+                 text-center border-t-4 border-blue-500"
+        >
+          <span class="text-lg font-medium text-gray-700">ข้อมูลชุมชน</span>
+        </router-link>
 
         <!-- บริการสาธารณะ -->
         <router-link

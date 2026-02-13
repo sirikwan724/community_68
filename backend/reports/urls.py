@@ -5,7 +5,6 @@ from .views import stats_views as sv
 from . import views
 from .views.report_views import report_cancel
 
-
 urlpatterns = [
 
     # -------------------------
@@ -48,6 +47,8 @@ urlpatterns = [
     # Statistics
     # -------------------------
     path("admin/stats/", views.admin_stats),
+    path("admin/available-years/", sv.available_years),
+
 
     # -------------------------
     # Appointments (User)

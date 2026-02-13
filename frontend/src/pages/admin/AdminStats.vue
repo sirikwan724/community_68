@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import axios from "axios";
 import Chart from "chart.js/auto";
 
@@ -11,40 +11,52 @@ const requestChart = ref(null);
 const borrowItemChart = ref(null);
 const borrowLocationChart = ref(null);
 
+const selectedYear = ref(new Date().getFullYear());
+const availableYears = ref([2024, 2025, 2026]);
+
 // chart instances
 let chart1Instance;
 let chart2Instance;
 let chart3Instance;
 let chart4Instance;
 
+const loadYears = async () => {
+  const token = getToken();
+  const res = await axios.get(
+    "http://localhost:8000/api/reports/admin/available-years/",
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  availableYears.value = res.data;
+};
+
+
 const loadStats = async () => {
   const token = getToken();
   if (!token) return;
 
   try {
-    // ✅ ยิงพร้อมกัน: ของเดิม + ยืม/จอง 2 ตัว
+    const year = selectedYear.value;
+
     const [resReport, resBorrowItems, resBorrowLocations] = await Promise.all([
-      axios.get("http://localhost:8000/api/reports/admin/stats/", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
+      axios.get(
+        `http://localhost:8000/api/reports/admin/stats/?year=${year}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      ),
 
-      axios.get("http://localhost:8000/api/borrow/admin/stats/borrow-items/", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
+      axios.get(
+        `http://localhost:8000/api/borrow/admin/stats/borrow-items/?year=${year}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      ),
 
-      axios.get("http://localhost:8000/api/borrow/admin/stats/borrow-locations/", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
+      axios.get(
+        `http://localhost:8000/api/borrow/admin/stats/borrow-locations/?year=${year}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      ),
     ]);
 
-    // ของเดิม
-    const reports = resReport.data.reports_by_category || {};
-    const requests = resReport.data.requests_by_type || {};
-
-    createReportChart(reports);
-    createRequestChart(requests);
-
-    // ✅ ของใหม่: ยืม/จอง (approved เท่านั้น)
+    createReportChart(resReport.data.reports_by_category || {});
+    createRequestChart(resReport.data.requests_by_type || {});
     createBorrowItemChart(resBorrowItems.data || {});
     createBorrowLocationChart(resBorrowLocations.data || {});
   } catch (err) {
@@ -187,6 +199,10 @@ onBeforeUnmount(() => {
   if (chart3Instance) chart3Instance.destroy();
   if (chart4Instance) chart4Instance.destroy();
 });
+
+watch(selectedYear, () => {
+  loadStats();
+});
 </script>
 
 <template>
@@ -194,12 +210,21 @@ onBeforeUnmount(() => {
     <div class="flex justify-between items-center">
       <h1 class="text-3xl font-bold">สถิติหมู่บ้าน</h1>
 
-      <router-link
-        to="/admin/dashboard"
-        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg shadow"
-      >
-        กลับหน้าหลัก
-      </router-link>
+      <div class="flex gap-4 items-center">
+        <label>เลือกปี:</label>
+        <select v-model="selectedYear" class="border px-3 py-2 rounded-lg">
+          <option v-for="year in availableYears" :key="year" :value="year">
+            {{ year }}
+          </option>
+        </select>
+
+        <router-link
+          to="/admin/dashboard"
+          class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
+        >
+          กลับหน้าหลัก
+        </router-link>
+      </div>
     </div>
 
     <!-- รายงานร้องเรียน (Pie Chart) -->

@@ -67,6 +67,27 @@ const goToNewsList = () => {
                 <!-- <span v-if="stats.pendingUsers > 0" class="badge bg-red-500">{{ stats.pendingUsers }}</span> -->
             </router-link>
 
+            <router-link to="/admin/village/info" class="admin-card group">
+              <div class="text-center">
+                <h4 class="font-bold text-gray-800">ข้อมูลหมู่บ้าน</h4>
+                <p class="text-xs text-gray-500 mt-1">แก้ไขข้อมูลหลัก / ประวัติ / สถานที่</p>
+              </div>
+            </router-link>
+
+            <router-link to="/admin/profiles" class="admin-card group">
+              <div class="text-center">
+                <h4 class="font-bold text-gray-800">ผู้นำและคณะกรรมการ</h4>
+                <p class="text-xs text-gray-500 mt-1">เพิ่ม/แก้ไข โปรไฟล์ผู้นำ / อสม.</p>
+              </div>
+            </router-link>
+
+            <router-link to="/admin/village/fund" class="admin-card group">
+              <div class="text-center">
+                <h4 class="font-bold text-gray-800">กองทุนหมู่บ้าน</h4>
+                <p class="text-xs text-gray-500 mt-1">จัดการปีงบประมาณ / อัปโหลด Excel</p>
+              </div>
+            </router-link>
+
             <router-link to="/admin/reports" class="admin-card group">
 
                 <div class="text-center">

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { BorrowService } from "@/services/borrow.service";
 import api from "@/services/api";
@@ -11,6 +11,10 @@ const borrowType = ref("ITEM");
 const router = useRouter();
 const items = ref([]);
 const locations = ref([]);
+
+const cancelForm = () => {
+  router.back();
+};
 
 const form = ref({
   // ITEM
@@ -32,6 +36,25 @@ const form = ref({
 });
 
 // =========================
+// RESET เมื่อเปลี่ยนประเภทการยืม
+// =========================
+watch(borrowType, (newType) => {
+  if (newType === "LOCATION") {
+    // รีเซ็ตสิ่งของ
+    form.value.items = [
+      { item: null, quantity: 1 },
+      { item: null, quantity: 1 },
+      { item: null, quantity: 1 },
+    ];
+  }
+
+  if (newType === "ITEM") {
+    // รีเซ็ตสถานที่
+    form.value.location = null;
+  }
+});
+
+// =========================
 // LOAD DATA (Item / Location)
 // =========================
 
@@ -50,6 +73,20 @@ onMounted(async () => {
   }
 });
 
+watch(
+  [() => form.value.start_datetime, () => form.value.end_datetime],
+  async ([start, end]) => {
+    if (!start || !end) return;
+
+    const res = await api.get("/borrow/locations/", {
+      params: {
+        start_datetime: start,
+        end_datetime: end,
+      },
+    });
+    locations.value = res.data;
+  }
+);
 
 // =========================
 // HELPER
@@ -60,14 +97,39 @@ const getStockText = (itemId) => {
   return `คงเหลือ: ${found.stock} ${found.unit}`;
 };
 
+    const isSubmitDisabled = computed(() => {
+      if (borrowType.value === "LOCATION") {
+        const selectedLocation = locations.value.find(
+          (l) => l.id === form.value.location
+        );
+        return selectedLocation && !selectedLocation.is_available;
+      }
+      return false;
+    });
 // =========================
 // SUBMIT
 // =========================
 const submit = async () => {
   try {
+
     // -------------------------
     // 1. เตรียม items ให้สะอาด
     // -------------------------
+    if (borrowType.value === "LOCATION") {
+      const selectedLocation = locations.value.find(
+        (l) => l.id === form.value.location
+      );
+
+      if (!selectedLocation) {
+        alert("กรุณาเลือกสถานที่");
+        return;
+      }
+
+      if (!selectedLocation.is_available) {
+        alert("สถานที่นี้ถูกใช้งานอยู่ ไม่สามารถส่งคำขอได้");
+        return;
+      }
+    }
     const cleanItems =
       borrowType.value === "ITEM"
         ? form.value.items
@@ -178,13 +240,14 @@ const submit = async () => {
     <div v-if="borrowType === 'LOCATION'" class="mb-6">
       <label class="font-semibold block mb-2">เลือกสถานที่</label>
       <select v-model="form.location" class="border p-2 w-full">
-        <option :value="null">-- เลือกสถานที่ --</option>
+        <option disabled value="">-- เลือกสถานที่ --</option>
         <option
           v-for="loc in locations"
           :key="loc.id"
           :value="loc.id"
+          :disabled="!loc.is_available"
         >
-          {{ loc.name }}
+          {{ loc.name }} {{ !loc.is_available ? "(ไม่ว่าง)" : "" }}
         </option>
       </select>
     </div>
@@ -242,7 +305,7 @@ const submit = async () => {
 
     <!-- ปุ่ม -->
     <button
-      @click="submit"
+      @click="submit" :disabled="isSubmitDisabled"
       class="w-full bg-blue-600 text-white p-3 rounded-lg shadow hover:bg-blue-700 transition disabled:opacity-50"
     >
       ส่งคำขอ

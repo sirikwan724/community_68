@@ -2,27 +2,50 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Q, Count, Sum
 
+from publicservice.serializers import serializers
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 
 from .models import BorrowRequest, Item, Location
 from .serializers import BorrowRequestReadSerializer, BorrowRequestSerializer, ItemSerializer, LocationSerializer
 from .permissions import IsAdmin
-
 
 # ===============================
 # USER VIEWS
 # ===============================
 
 class CreateBorrowRequestView(generics.CreateAPIView):
-    """
-    ผู้ใช้งานสร้างคำขอยืม
-    - ดึงชื่อ + เบอร์จากบัญชีอัตโนมัติ (ทำใน serializer)
-    """
     serializer_class = BorrowRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        borrow = serializer.save(user=self.request.user)
+
+        # ---- กรณีจองสถานที่ ----
+        if borrow.borrow_type == 'LOCATION':
+            conflict = BorrowRequest.objects.filter(
+                borrow_type='LOCATION',
+                location=borrow.location,
+                status__in=['approved', 'borrowed'],
+                start_datetime__lt=borrow.end_datetime,
+                end_datetime__gt=borrow.start_datetime,
+            ).exists()
+
+            if conflict:
+                raise serializers.ValidationError(
+                    "สถานที่นี้ถูกใช้งานในช่วงเวลาดังกล่าวแล้ว"
+                )
+
+        # ---- กรณียืมสิ่งของ ----
+        if borrow.borrow_type == 'ITEM':
+            for bi in borrow.items.select_related('item').all():
+                if bi.quantity > bi.item.stock:
+                    raise serializers.ValidationError(
+                        f"{bi.item.name} มีจำนวนไม่เพียงพอ"
+                    )
 
 
 class MyBorrowRequestListView(generics.ListAPIView):
@@ -65,6 +88,29 @@ class RequestReturnView(APIView):
             status=status.HTTP_200_OK
         )
 
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def cancel_borrow_request(request, pk):
+    borrow = get_object_or_404(
+        BorrowRequest,
+        pk=pk,
+        user=request.user
+    )
+
+    # ยกเลิกได้เฉพาะสถานะ pending
+    if borrow.status != "pending":
+        return Response(
+            {"error": "ไม่สามารถยกเลิกรายการนี้ได้"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    borrow.status = "cancelled"
+    borrow.save()
+
+    return Response(
+        {"message": "ยกเลิกคำขอเรียบร้อย"},
+        status=status.HTTP_200_OK
+    )
 
 # ===============================
 # ADMIN VIEWS
@@ -208,20 +254,26 @@ class AdminConfirmReturnView(APIView):
 # ===============================
 
 class ItemListView(generics.ListAPIView):
-    queryset = Item.objects.filter(is_active=True)
     serializer_class = ItemSerializer
-    permission_classes = [permissions.AllowAny]  
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Item.objects.filter(is_active=True)
-
+        return Item.objects.filter(
+            is_active=True,
+            stock__gt=0
+        )
 
 class LocationListView(generics.ListAPIView):
     serializer_class = LocationSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Location.objects.filter(is_active=True)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
 
 class MyBorrowRequestListView(generics.ListAPIView):
     serializer_class = BorrowRequestReadSerializer
@@ -240,14 +292,18 @@ class AdminBorrowItemStatsView(APIView):
 
     def get(self, request):
         SUCCESS_STATUSES = ['approved', 'return_requested', 'returned', 'borrowed']
+        year = request.GET.get("year")
+
+        qs = BorrowRequest.objects.filter(
+            borrow_type='ITEM',
+            status__in=SUCCESS_STATUSES
+        )
+
+        if year:
+            qs = qs.filter(created_at__year=year)
 
         data = (
-            BorrowRequest.objects
-            .filter(
-                borrow_type='ITEM',
-                status__in=SUCCESS_STATUSES
-            )
-            .values('items__item__name')
+            qs.values('items__item__name')
             .annotate(total=Sum('items__quantity'))
         )
 
@@ -263,13 +319,18 @@ class AdminBorrowLocationStatsView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
+        year = request.GET.get("year")
+
+        qs = BorrowRequest.objects.filter(
+            borrow_type='LOCATION',
+            status='approved'
+        )
+
+        if year:
+            qs = qs.filter(created_at__year=year)
+
         data = (
-            BorrowRequest.objects
-            .filter(
-                borrow_type='LOCATION',
-                status='approved'
-            )
-            .values('location__name')
+            qs.values('location__name')
             .annotate(total=Count('id'))
         )
 
@@ -286,8 +347,12 @@ class AdminBorrowSummaryStatsView(APIView):
 
     def get(self, request):
         SUCCESS_STATUSES = ['approved', 'return_requested', 'returned', 'borrowed']
+        year = request.GET.get("year")
 
         qs = BorrowRequest.objects.filter(status__in=SUCCESS_STATUSES)
+
+        if year:
+            qs = qs.filter(created_at__year=year)
 
         result = qs.aggregate(
             success_total=Count('id'),
@@ -296,3 +361,4 @@ class AdminBorrowSummaryStatsView(APIView):
         )
 
         return Response(result)
+

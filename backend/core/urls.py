@@ -42,6 +42,8 @@ urlpatterns = [
 
     path("api/refresh/", TokenRefreshView.as_view()),
 
+    path("api/", include("village.urls")),
+
 
 ]
 

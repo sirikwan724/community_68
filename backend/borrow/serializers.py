@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import transaction
 from .models import Item, BorrowItem, BorrowRequest, Location
 
 
@@ -13,10 +14,32 @@ class ItemSerializer(serializers.ModelSerializer):
 
 
 class LocationSerializer(serializers.ModelSerializer):
+    is_available = serializers.SerializerMethodField()
+
     class Meta:
         model = Location
-        fields = "__all__"
+        fields = ["id", "name", "is_available"]
 
+    def get_is_available(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return True
+
+        start = request.query_params.get("start_datetime")
+        end = request.query_params.get("end_datetime")
+
+        if not start or not end:
+            return True  # ยังไม่เลือกวันเวลา ถือว่าว่าง
+
+        conflict = BorrowRequest.objects.filter(
+            borrow_type="LOCATION",
+            location=obj,
+            status__in=["pending", "approved", "borrowed"],
+            start_datetime__lt=end,
+            end_datetime__gt=start,
+        ).exists()
+
+        return not conflict
 
 # =========================
 # BORROW ITEM (ย่อย)
@@ -34,88 +57,96 @@ class BorrowItemSerializer(serializers.ModelSerializer):
             )
         return value
 
-
 # =========================
 # BORROW REQUEST (ตัวหลัก)
 # =========================
 
 class BorrowRequestSerializer(serializers.ModelSerializer):
-    items = BorrowItemSerializer(many=True)
-    borrower_name = serializers.CharField(read_only=True)
-    borrower_phone = serializers.CharField(read_only=True)
+    items = BorrowItemSerializer(many=True, required=False)
 
     class Meta:
         model = BorrowRequest
-        fields = [
-            "id",
-            "borrow_type",
-            "location",
-            "items",
-            "start_datetime",
-            "end_datetime",
-            "pickup_datetime",
-            "expected_return_datetime",
-            "purpose",
+        fields = "__all__"
+        read_only_fields = [
+            "user",
             "status",
             "borrower_name",
-            "borrower_phone",
-            "created_at",
-        ]
+            "borrower_phone",]
 
     def validate(self, attrs):
         borrow_type = attrs.get("borrow_type")
-        items = attrs.get("items", [])
-
-        # ---- ตรวจวันเวลา ----
         start = attrs.get("start_datetime")
         end = attrs.get("end_datetime")
+        location = attrs.get("location")
 
-        if start and end and start >= end:
-            raise serializers.ValidationError(
-                "วันเวลาเริ่มต้องน้อยกว่าวันเวลาสิ้นสุด"
-            )
+        # ---- เช็กจองสถานที่ซ้อน ----
+        if borrow_type == "LOCATION":
+            conflict = BorrowRequest.objects.filter(
+                borrow_type="LOCATION",
+                location=location,
+                status__in=["approved", "borrowed"],
+                start_datetime__lt=end,
+                end_datetime__gt=start,
+            ).exists()
 
-        # ---- กรณียืมสิ่งของ ----
-        if borrow_type == "ITEM" and not items:
-            raise serializers.ValidationError(
-                "กรุณาเลือกสิ่งของอย่างน้อย 1 รายการ"
-            )
-
-        # ---- กรณียืมสถานที่ ----
-        if borrow_type == "LOCATION" and not attrs.get("location"):
-            raise serializers.ValidationError(
-                "กรุณาเลือกสถานที่"
-            )
+            if conflict:
+                raise serializers.ValidationError(
+                    {"location": "สถานที่นี้ถูกใช้งานในช่วงเวลาดังกล่าวแล้ว"}
+                )
 
         return attrs
-
+    
     def create(self, validated_data):
         request = self.context["request"]
-        user = request.user
-
-        profile = getattr(user, "profile", None)
-        if not profile:
-            raise serializers.ValidationError(
-                "ไม่พบข้อมูลโปรไฟล์ผู้ใช้งาน"
+        items_data = validated_data.pop("items", [])
+        validated_data.pop("user", None)
+        with transaction.atomic():
+            borrow = BorrowRequest.objects.create(
+                user=self.context["request"].user,
+                borrower_name=self.context["request"].user.full_name,
+                borrower_phone=self.context["request"].user.phone,
+                **validated_data
             )
 
-        items_data = validated_data.pop("items")
+            if borrow.borrow_type == "ITEM":
+                for item_data in items_data:
+                    BorrowItem.objects.create(
+                        borrow_request=borrow,
+                        item=item_data["item"],
+                        quantity=item_data["quantity"],
+                    )
 
-        borrow_request = BorrowRequest.objects.create(
-            user=user,
-            borrower_name=profile.full_name,
-            borrower_phone=profile.phone_number,
-            **validated_data
-        )
+                    # เช็กสต๊อก
+                    if item_data["quantity"] > item_data["item"].stock:
+                        raise serializers.ValidationError(
+                            f"{item_data['item'].name} มีจำนวนไม่เพียงพอ"
+                        )
 
-        for item_data in items_data:
-            BorrowItem.objects.create(
-                borrow_request=borrow_request,
-                item=item_data["item"],
-                quantity=item_data["quantity"]
-            )
+            # เช็กสต๊อก
+            # if borrow.borrow_type == "ITEM":
+            #     for bi in borrow.items.select_related("item").all():
+            #         if bi.quantity > bi.item.stock:
+            #             raise serializers.ValidationError(
+            #                 f"{bi.item.name} มีจำนวนไม่เพียงพอ"
+            #             )
 
-        return borrow_request
+            return borrow
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            borrow = serializer.save(user=self.request.user)
+
+        if borrow.borrow_type == "LOCATION":
+            conflict = BorrowRequest.objects.filter(
+                borrow_type="LOCATION",
+                location=borrow.location,
+                status__in=["approved", "borrowed"],
+                start_datetime__lt=borrow.end_datetime,
+                end_datetime__gt=borrow.start_datetime,
+            ).exclude(pk=borrow.pk).exists()
+
+            if conflict:
+                raise serializers.ValidationError("เวลานี้ถูกจองแล้ว")
 
 class BorrowItemReadSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source="item.name")

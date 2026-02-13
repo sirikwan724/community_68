@@ -54,7 +54,7 @@ const router = createRouter({
         { path: "news/:id/edit", component: AdminNewsEdit },
         { path: "news-list", component: AdminNewsList },
         { path: "reports", component: () => import("../pages/admin/AdminReports.vue"),},
-        { path: "/admin/reports", component: () => import("../pages/admin/AdminReports.vue"),},
+        // { path: "/admin/reports", component: () => import("../pages/admin/AdminReports.vue"),},
         { path: "/admin/reports-processing", component: () => import("../pages/admin/AdminProcessingReports.vue"),},
         { path: "/admin/reports-resolved", component: () => import("../pages/admin/AdminResolvedReports.vue"),},
         { path: "/admin/helps", component: () => import("../pages/admin/AdminRequestHelp.vue"),},
@@ -65,6 +65,11 @@ const router = createRouter({
         { path: "/admin/stats", name: "AdminStats", component: AdminStats, meta: { requiresAuth: true, adminOnly: true }},
         { path: "/admin/appointments", name: "admin-appointments", component: () => import("../pages/admin/AdminAppointmentList.vue"),},
         { path: "/admin/borrows", name: "AdminBorrows", component: () => import("../pages/admin/BorrowAdmin.vue"),meta: { requiresAuth: true, role: "admin" },},
+        { path: "village/info", component: () => import("../pages/admin/village/AdminVillageInfo.vue"),},
+        { path: "village/fund", component: () => import("../pages/admin/village/AdminVillageFund.vue"),},
+        { path: "profiles", component: () => import("../pages/admin/village/AdminCommunityProfiles.vue"),},
+        { path: "profiles/create", component: () => import("../pages/admin/village/AdminCommunityProfileForm.vue"),},
+        { path: "profiles/:id/edit", component: () => import("../pages/admin/village/AdminCommunityProfileForm.vue"),},
       ],
     },
 
@@ -76,6 +81,11 @@ const router = createRouter({
       component: MainLayout,
       children: [
         { path: "", component: HomePage },
+
+        {
+          path: "/village",
+          component: () => import("@/pages/village/VillagePage.vue")
+        },
 
         {
           path: "profile",
@@ -108,7 +118,7 @@ const router = createRouter({
           name: 'news-detail',
           component: () => import('../pages/News/NewsDetail.vue'),
         },
-                // 🟦 บริการสาธารณะ (ผู้เยี่ยมชม + ผู้ใช้)
+                // บริการสาธารณะ (ผู้เยี่ยมชม + ผู้ใช้)
         {
           path: "my-history",
           component: () => import("../pages/MyHistory.vue"),
