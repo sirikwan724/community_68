@@ -97,24 +97,22 @@ def me(request):
 
     return Response(data)
 
-# แก้ไขโปรไฟล์
 @api_view(["PUT", "PATCH"])
 @permission_classes([IsAuthenticated])
 def update_profile(request):
     user = request.user
-    data = request.data
 
-    # อัปเดตตรงๆ เลย ไม่ต้อง pending
-    user.full_name = data.get("full_name", user.full_name)
-    user.phone = data.get("phone", user.phone)
-    user.address = data.get("address", user.address)
-    user.house_number = data.get("house_number", user.house_number)
-    user.village = data.get("village", user.village)
+    serializer = UserUpdateSerializer(
+        user,
+        data=request.data,
+        partial=True  
+    )
 
-    user.save()
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
 
-    return Response({"detail": "Profile updated", "user": UserSerializer(user).data})
-
+    return Response(serializer.errors, status=400)
 
 
 # ส่วนของผู้ใหญ่บ้าน (Admin Actions)

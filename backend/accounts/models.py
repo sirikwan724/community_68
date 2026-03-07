@@ -48,7 +48,7 @@ class RegistrationRequest(models.Model):
     def __str__(self):
         return f"{self.full_name} ({self.status})"
 
-class News(models.Model):
+class News(models.Model): 
     title = models.CharField(max_length=200, verbose_name="หัวข้อข่าว")
     content = models.TextField(verbose_name="เนื้อหาข่าว")
     image = models.ImageField(upload_to='news_images/', blank=True, null=True, verbose_name="รูปภาพประกอบ")

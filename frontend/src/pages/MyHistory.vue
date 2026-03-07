@@ -12,6 +12,8 @@ const merged = ref([]);
 const appointments = ref([]);
 const borrows = ref([]);
 
+const serviceReports = ref([]); // สำหรับเก็บรายงานปัญหาบริการสาธารณะของผู้ใช้
+
 const filterMonth = ref(""); // "01" - "12"
 const filterYear = ref("");  // "2024", "2025"
 
@@ -35,7 +37,7 @@ const statusLabel = {
   processing: "กำลังดำเนินการ",
   approved: "อนุมัติแล้ว",
   rejected: "ปฏิเสธ",
-  canceled: "ยกเลิกแล้ว",
+  canceled: "รายงานไม่ถูกต้อง",
   cancelled: "ยกเลิกแล้ว",
   resolved: "เสร็จสิ้น",
   done: "เสร็จสิ้น",
@@ -48,7 +50,7 @@ const statusClass = {
   processing: "bg-blue-200 text-blue-800",
   approved: "bg-green-200 text-green-800",
   rejected: "bg-red-200 text-red-800",
-  canceled: "bg-gray-300 text-gray-700",
+  canceled: "bg-gray-300 text-gray-800",
   cancelled: "bg-gray-300 text-gray-700",
   resolved: "bg-green-200 text-green-800",
   done: "bg-green-200 text-green-800",
@@ -107,6 +109,57 @@ const loadReports = async () => {
     }));
   } catch (err) {
     console.error("โหลดรายงานผิดพลาด", err);
+  }
+};
+
+// ---------------------------
+// โหลดรายงานปัญหาบริการสาธารณะ (Service Report)
+// ---------------------------
+const loadServiceReports = async () => {
+  try {
+    const res = await axios.get("http://localhost:8000/api/services/reports/my/", {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+
+    serviceReports.value = res.data.map((i) => ({
+      id: i.id,
+      type: "service_report",
+      title: `ปัญหาตู้บริการ: ${i.service_name || "-"}`,
+      detail: `${i.title} - ${i.description}`,
+      status: i.status,
+      created_at: i.created_at,
+      service_id: i.service_id,
+    }));
+  } catch (err) {
+    console.error("โหลดรายงานตู้บริการผิดพลาด", err);
+  }
+};
+
+// รวมข้อมูลรายงานปัญหาทั้งหมด (Report + Service Report)
+const refreshReportsTab = async () => {
+  await loadReports();
+  await loadServiceReports();
+  reports.value = [...reports.value, ...serviceReports.value].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+};
+
+// ---------------------------
+// ยกเลิกรายงานปัญหาบริการสาธารณะ
+// ---------------------------
+const cancelServiceReport = async (id) => {
+  if (!confirm("ต้องการยกเลิกคำร้องนี้หรือไม่?")) return;
+
+  try {
+    await axios.patch(
+      `http://localhost:8000/api/services/reports/my/${id}/cancel/`,
+      {},
+      { headers: { Authorization: `Bearer ${getToken()}` } }
+    );
+    alert("ยกเลิกคำร้องสำเร็จ");
+    await refreshReportsTab(); // เปลี่ยนจาก loadServiceReports() เป็น refreshReportsTab()
+  } catch (err) {
+    alert("ไม่สามารถยกเลิกได้");
   }
 };
 
@@ -302,10 +355,11 @@ const cancelAppointment = async (id) => {
 // โหลดข้อมูลเมื่อเปิดหน้า
 // ---------------------------
 onMounted(async () => {
-  await loadReports();
-  await loadRequests();
-  await loadAppointments();
-  await loadBorrows(); 
+  await loadReports(); // โหลดรายงานปัญหาทั่วไป
+  await refreshReportsTab(); // โหลดรายงานปัญหาบริการสาธารณะของผู้ใช้
+  await loadRequests(); // โหลดคำขอความอนุเคราะห์
+  await loadAppointments(); // โหลดนัดหมาย
+  await loadBorrows(); // โหลดประวัติการยืม
   mergeAll();
 });
 
@@ -413,7 +467,9 @@ onMounted(async () => {
 
         <!-- ปุ่มแก้ไข & ยกเลิก -->
         <div v-if="item.status === 'pending'" class="mt-4 flex gap-3">
+          <!-- รายงานหมู่บ้าน -->
           <button
+            v-if="item.type === 'report'"
             @click="$router.push(`/report/edit/${item.id}`)"
             class="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
           >
@@ -421,7 +477,25 @@ onMounted(async () => {
           </button>
 
           <button
+            v-if="item.type === 'report'"
             @click="cancelReport(item.id)"
+            class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+          >
+            ยกเลิกคำร้อง
+          </button>
+
+          <!-- รายงานตู้บริการ -->
+          <button
+            v-else-if="item.type === 'service_report'"
+            @click="$router.push(`/service-reports/edit/${item.id}`)"
+            class="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+          >
+            แก้ไข
+          </button>
+
+          <button
+            v-if="item.type === 'service_report'"
+            @click="cancelServiceReport(item.id)"
             class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
           >
             ยกเลิกคำร้อง

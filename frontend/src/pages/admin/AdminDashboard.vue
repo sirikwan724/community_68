@@ -96,7 +96,14 @@ const goToNewsList = () => {
                 </div>
                 <!-- <span v-if="stats.newReports > 0" class="badge bg-red-500">{{ stats.newReports }}</span> -->
             </router-link>
-
+            <router-link to="/admin/service-reports" class="admin-card group">
+            <div class="text-center">
+                <h4 class="font-bold text-gray-800">รายงานตู้บริการ</h4>
+                <p class="text-xs text-gray-500 mt-1">ดูรายงาน/อัปเดตสถานะ/สถิติ</p>
+            </div>
+            <!-- ถ้าทำ badge ได้ -->
+            <!-- <span v-if="stats.newServiceReports > 0" class="badge bg-red-500">{{ stats.newServiceReports }}</span> -->
+            </router-link>
             <router-link to="/admin/borrows" class="admin-card group">
 
                 <div class="text-center">

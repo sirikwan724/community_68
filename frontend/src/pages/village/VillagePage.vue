@@ -11,6 +11,12 @@ const router = useRouter();
 
 const isLoggedIn = computed(() => !!localStorage.getItem("access"));
 
+const activeTab = ref("leader");
+
+const villageData = ref(null);
+const loading = ref(false);
+const errorMsg = ref("");
+
 const tabs = computed(() => {
   const base = [
     { key: "overview", label: "ชุมชนบ้านสร้างขุนศรี" },
@@ -24,12 +30,6 @@ const tabs = computed(() => {
   return base;
 });
 
-const activeTab = ref("leader");
-
-const villageData = ref(null);
-const loading = ref(false);
-const errorMsg = ref("");
-
 const fetchVillage = async () => {
   loading.value = true;
   try {
@@ -41,6 +41,8 @@ const fetchVillage = async () => {
     loading.value = false;
   }
 };
+
+const sections = computed(() => villageData.value?.sections ?? []);
 
 onMounted(fetchVillage);
 </script>
@@ -80,7 +82,8 @@ onMounted(fetchVillage);
 
         <VillageTab
           v-if="activeTab === 'overview'"
-          :data="villageData"
+          :sections="sections"
+          :isAdmin="false"
         />
 
         <LeaderTab
@@ -94,4 +97,4 @@ onMounted(fetchVillage);
       </div>
     </div>
   </div>
-</template>
+</template> 

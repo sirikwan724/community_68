@@ -27,12 +27,12 @@
     </div>
     </div>
 
-    <!-- 🔹 ถ้าไม่มีบริการ -->
+    <!-- ถ้าไม่มีบริการ -->
     <div v-if="filteredServices.length === 0" class="text-gray-500 text-center mt-10">
       ไม่มีบริการตามเงื่อนไข
     </div>
 
-    <!-- 🔹 รายการบริการ -->
+    <!-- รายการบริการ -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <div
         v-for="item in filteredServices"
@@ -49,7 +49,7 @@
         <h3 class="font-semibold text-lg mt-2">{{ item.name }}</h3>
         <p class="text-sm text-gray-600">{{ item.location }}</p>
 
-        <!-- 🔹 สถานะ -->
+        <!-- สถานะ -->
         <span
           class="inline-block mt-2 px-2 py-1 text-xs rounded-full"
           :class="{

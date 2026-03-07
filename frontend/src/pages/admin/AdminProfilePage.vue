@@ -1,8 +1,9 @@
 <script setup>
 import { ref, onMounted, reactive } from "vue";
-import { useRouter } from "vue-router"; // 1. Import useRouter
+import { useRouter } from "vue-router"; // Import useRouter
+import axios from "axios";
 
-const router = useRouter(); // 2. ประกาศตัวแปร router
+const router = useRouter(); // ประกาศตัวแปร router
 const user = ref({});
 const editing = ref(false);
 const loading = ref(false);
@@ -18,29 +19,68 @@ onMounted(() => {
   loadUserData();
 });
 
-const loadUserData = () => {
-  const stored = localStorage.getItem("user");
-  if (stored) {
-    user.value = JSON.parse(stored);
-    form.first_name = user.value.first_name;
-    form.last_name = user.value.last_name;
-    form.phone = user.value.phone;
+const loadUserData = async () => {
+  const token = localStorage.getItem("access");
+
+  const res = await axios.get(
+    "http://localhost:8000/api/accounts/me/",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  user.value = res.data;
+
+  if (user.value.full_name) {
+    const parts = user.value.full_name.split(" ");
+    form.first_name = parts[0] || "";
+    form.last_name = parts.slice(1).join(" ") || "";
   }
+
+  form.phone = user.value.phone || "";
 };
 
 const saveProfile = async () => {
   loading.value = true;
-  setTimeout(() => {
-    user.value.first_name = form.first_name;
-    user.value.last_name = form.last_name;
-    user.value.phone = form.phone;
-    localStorage.setItem("user", JSON.stringify(user.value));
-    
-    alert("✅ บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว");
-    
+
+  try {
+    const token = localStorage.getItem("access");
+
+    await axios.patch(
+      "http://localhost:8000/api/accounts/me/update/",
+      {
+        full_name: form.first_name + " " + form.last_name,
+        phone: form.phone,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const fresh = await axios.get(
+      "http://localhost:8000/api/accounts/me/",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    user.value = fresh.data;
+    localStorage.setItem("user", JSON.stringify(fresh.data));
+
     editing.value = false;
+    alert("✅ บันทึกข้อมูลเรียบร้อยแล้ว");
+  } catch (err) {
+    console.error(err);
+    alert("เกิดข้อผิดพลาด");
+  } finally {
     loading.value = false;
-  }, 800);
+  }
 };
 
 const cancelEdit = () => {
@@ -81,7 +121,7 @@ const cancelEdit = () => {
                 </div>
                 <div class="mb-2">
                     <h2 class="text-2xl font-bold text-gray-800">
-                        {{ user.first_name }} {{ user.last_name }}
+                        {{ user.full_name }}
                     </h2>
                     <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold border border-blue-200">
                         {{ form.position }}

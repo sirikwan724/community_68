@@ -48,13 +48,14 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["full_name", "address", "phone", "house_owner_name"]
+        fields = ["full_name", "address", "phone", "house_owner_name", "citizen_id"]
 
     def update(self, instance, validated_data):
         instance.full_name = validated_data.get("full_name", instance.full_name)
         instance.address = validated_data.get("address", instance.address)
         instance.phone = validated_data.get("phone", instance.phone)
         instance.house_owner_name = validated_data.get("house_owner_name", instance.house_owner_name)
+        instance.citizen_id = validated_data.get("citizen_id", instance.citizen_id)
         instance.save()
         return instance
 
@@ -80,6 +81,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "full_name": self.user.full_name,
                 "phone": self.user.phone,
                 "address": self.user.address,
+                "citizen_id": self.user.citizen_id,
+                "house_owner_name": self.user.house_owner_name,
                 "role": self.user.role,
             }
         })

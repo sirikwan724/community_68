@@ -44,7 +44,7 @@ const router = createRouter({
     // =============================================
     {
       path: "/admin",
-      component: AdminLayout,
+      component: AdminLayout, 
       meta: { requiresAuth: true, adminOnly: true },
       children: [
         { path: "dashboard", component: AdminDashboard },
@@ -55,16 +55,17 @@ const router = createRouter({
         { path: "news-list", component: AdminNewsList },
         { path: "reports", component: () => import("../pages/admin/AdminReports.vue"),},
         // { path: "/admin/reports", component: () => import("../pages/admin/AdminReports.vue"),},
-        { path: "/admin/reports-processing", component: () => import("../pages/admin/AdminProcessingReports.vue"),},
-        { path: "/admin/reports-resolved", component: () => import("../pages/admin/AdminResolvedReports.vue"),},
-        { path: "/admin/helps", component: () => import("../pages/admin/AdminRequestHelp.vue"),},
+        { path: "reports-processing", component: () => import("../pages/admin/AdminProcessingReports.vue"),},
+        { path: "reports-resolved", component: () => import("../pages/admin/AdminResolvedReports.vue"),},
+        { path: "service-reports", component: () => import("../pages/admin/AdminServiceReports.vue") },
+        { path: "helps", component: () => import("../pages/admin/AdminRequestHelp.vue"),},
                 // 🟥 Admin — จัดการบริการสาธารณะ
         { path: "services", component: () => import("../pages/admin/AdminServiceList.vue"),},
         { path: "services/create", component: () => import("../pages/admin/AdminServiceCreate.vue"),},
         { path: "services/:id/edit", component: () => import("../pages/admin/AdminServiceEdit.vue"),},
-        { path: "/admin/stats", name: "AdminStats", component: AdminStats, meta: { requiresAuth: true, adminOnly: true }},
-        { path: "/admin/appointments", name: "admin-appointments", component: () => import("../pages/admin/AdminAppointmentList.vue"),},
-        { path: "/admin/borrows", name: "AdminBorrows", component: () => import("../pages/admin/BorrowAdmin.vue"),meta: { requiresAuth: true, role: "admin" },},
+        { path: "stats", name: "AdminStats", component: AdminStats, meta: { requiresAuth: true, adminOnly: true }},
+        { path: "appointments", name: "admin-appointments", component: () => import("../pages/admin/AdminAppointmentList.vue"),},
+        { path: "borrows", name: "AdminBorrows", component: () => import("../pages/admin/BorrowAdmin.vue"),meta: { requiresAuth: true, role: "admin" },},
         { path: "village/info", component: () => import("../pages/admin/village/AdminVillageInfo.vue"),},
         { path: "village/fund", component: () => import("../pages/admin/village/AdminVillageFund.vue"),},
         { path: "profiles", component: () => import("../pages/admin/village/AdminCommunityProfiles.vue"),},
@@ -78,7 +79,7 @@ const router = createRouter({
     // =============================================
     {
       path: "/",
-      component: MainLayout,
+      component: MainLayout, 
       children: [
         { path: "", component: HomePage },
 
@@ -136,6 +137,18 @@ const router = createRouter({
         {
           path: "public-services/:id",
           component: () => import("../pages/publicservice/PublicServiceDetail.vue"),
+          meta: { requiresAuth: true },
+        },
+        // บริการสาธารณะ / รายงานปัญหา
+        { 
+          path: "service-reports/create/:serviceId",
+          component: () => import("../pages/publicservice/ServiceReportForm.vue"),
+          meta: { requiresAuth: true },
+        },
+        // รายละเอียดรายงานปัญหาบริการสาธารณะของผู้ใช้ + ยกเลิก
+        {
+          path: "service-reports/edit/:id",
+          component: () => import("../pages/publicservice/ServiceReportEdit.vue"),
           meta: { requiresAuth: true },
         },
         {

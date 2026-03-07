@@ -19,6 +19,7 @@ urlpatterns = [
 
     # User Profile
     path('me/', views.me, name='me'),
+    path('me/update/', views.update_profile, name='update_profile'),
     # Admin Actions
     path('admin/users/', views.list_users, name='list_users'),
     path('admin/requests/', views.request_list, name='request_list'),

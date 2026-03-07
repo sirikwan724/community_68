@@ -1,10 +1,10 @@
 import re
-# from django.forms import IntegerField
-from django.db.models import Case, When, IntegerField
-from django.shortcuts import render
-import pandas as pd
-# Create your views here.
 from decimal import Decimal
+
+import pandas as pd
+from django.db.models import Case, When, IntegerField
+from django.shortcuts import get_object_or_404
+
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,9 +12,10 @@ from rest_framework.parsers import MultiPartParser
 
 from .models import (
     Village,
-    VillageHistory,
+    VillageSection,
+    VillageSectionImage,
     VillagePlace,
-    VillageExtraSection,
+    VillagePlaceImage,
     CommunityProfile,
     FundType,
     FundRecord,
@@ -23,43 +24,39 @@ from .models import (
 
 from .serializers import (
     VillageSerializer,
-    VillageHistorySerializer,
+    VillageSectionSerializer,
+    VillageSectionImageSerializer,
     VillagePlaceSerializer,
-    VillageExtraSectionSerializer,
+    VillagePlaceImageSerializer,
     CommunityProfileSerializer,
     FundTypeSerializer,
     FundRecordSerializer,
     FundLoanSerializer,
 )
 
+# -----------------------------
+# Helpers for Excel import
+# -----------------------------
 def normalize(text):
     return re.sub(r"[ \-–_()/]", "", str(text)).lower().strip()
 
 def find_header_row(df):
     required_keywords = ["ชื่อ", "บัญชี", "เงิน"]
-
     for i in range(len(df)):
         row = df.iloc[i]
-
-        # เอาเฉพาะ cell ที่ไม่ใช่ NaN
         non_empty_cells = [str(cell) for cell in row if pd.notna(cell)]
-
-        # ถ้ามี cell น้อยเกินไป แสดงว่าไม่น่าใช่ header
         if len(non_empty_cells) < 3:
             continue
 
         match_count = 0
         for cell in non_empty_cells:
             cell_clean = normalize(cell)
-
             for keyword in required_keywords:
                 if cell_clean == normalize(keyword) or normalize(keyword) in cell_clean:
                     match_count += 1
 
-        # ต้อง match อย่างน้อย 2 keyword
         if match_count >= 2:
             return i
-
     return None
 
 def find_column(df, keywords):
@@ -70,6 +67,10 @@ def find_column(df, keywords):
                 return col
     return None
 
+
+# -----------------------------
+# Fund: Import Excel
+# -----------------------------
 class FundLoanExcelImportAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser]
@@ -79,28 +80,20 @@ class FundLoanExcelImportAPIView(APIView):
         if not file:
             return Response({"detail": "ไม่พบไฟล์"}, status=400)
 
-        fund_record = FundRecord.objects.get(id=record_id)
+        fund_record = get_object_or_404(FundRecord, id=record_id)
 
         df_raw = pd.read_excel(file, header=None)
-
-        # หา header จริง
         header_row = find_header_row(df_raw)
         if header_row is None:
             return Response({"detail": "ไม่พบหัวตาราง"}, status=400)
 
-        df = pd.read_excel(file, header=header_row) 
+        df = pd.read_excel(file, header=header_row)
         df.columns = df.columns.str.strip()
-
-        print(df.head(10))
-
-        # print("Header Row Found:", header_row)
-        print("Columns After Re-read:", df.columns)
-        print("Detected Columns:", df.columns)
 
         COLUMN_MAP = {
             "full_name": ["ชื่อ"],
-            "bank_account": ["บัญชี","เลขที่บัญชี"],
-            "loan_amount": ["เงิน", "อนุมัติ","จำนวนเงิน"],
+            "bank_account": ["บัญชี", "เลขที่บัญชี"],
+            "loan_amount": ["เงิน", "อนุมัติ", "จำนวนเงิน"],
             "purpose": ["วัตถุประสงค์", "อาชีพ"],
         }
 
@@ -111,8 +104,8 @@ class FundLoanExcelImportAPIView(APIView):
 
         if not all([col_fullname, col_account, col_amount]):
             return Response({"detail": "รูปแบบไฟล์ไม่ถูกต้อง"}, status=400)
-        
-        FundLoan.objects.filter(fund_record=fund_record).delete() #ลบข้อมูลเก่าออกก่อนนำเข้าใหม่
+
+        FundLoan.objects.filter(fund_record=fund_record).delete()
 
         created = 0
         skipped = 0
@@ -120,15 +113,12 @@ class FundLoanExcelImportAPIView(APIView):
         for _, row in df.iterrows():
             try:
                 raw_amount = str(row[col_amount]).replace(",", "").strip()
-
                 if not raw_amount or not raw_amount.replace(".", "").isdigit():
                     skipped += 1
                     continue
 
                 loan_amount = Decimal(raw_amount)
-                interest = (
-                    loan_amount * fund_record.interest_rate / Decimal(100)
-                )
+                interest = loan_amount * fund_record.interest_rate / Decimal(100)
 
                 FundLoan.objects.create(
                     fund_record=fund_record,
@@ -138,23 +128,20 @@ class FundLoanExcelImportAPIView(APIView):
                     interest_amount=interest,
                     purpose=row[col_purpose] if col_purpose else "",
                 )
-
                 created += 1
-
-            except Exception as e:
-                print("ข้ามแถว:", e)
+            except Exception:
                 skipped += 1
                 continue
 
         fund_record.last_uploaded_file = file.name
         fund_record.save()
 
-        return Response({
-            "message": f"นำเข้าข้อมูลสำเร็จ {created} รายการ",
-            "skipped": skipped
-        })
+        return Response({"message": f"นำเข้าข้อมูลสำเร็จ {created} รายการ", "skipped": skipped})
 
-#รวม: ข้อมูลหมู่บ้านทั้งหมด
+
+# -----------------------------
+# Public: Village Full (ใหม่)
+# -----------------------------
 class VillageFullAPIView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -163,35 +150,24 @@ class VillageFullAPIView(APIView):
         if not village:
             return Response({"detail": "ไม่พบข้อมูลหมู่บ้าน"}, status=404)
 
+        sections = VillageSection.objects.all().order_by("order", "id")
         data = {
-            "overview": VillageSerializer(village).data,
-            "history": (
-                VillageHistorySerializer(village.history).data
-                if hasattr(village, "history")
-                else None
-            ),
-            "places": VillagePlaceSerializer(
-                village.places.order_by("order"),
-                many=True
-            ).data,
-            "extra_sections": VillageExtraSectionSerializer(
-                village.extra_sections.filter(is_active=True).order_by("order"),
-                many=True
-            ).data,
+            "overview": VillageSerializer(village, context={"request": request}).data,
+            "sections": VillageSectionSerializer(sections, many=True, context={"request": request}).data,
         }
-
         return Response(data)
 
-#API โปรไฟล์ผู้นำ / กรรมการ / อสม.
+
+# -----------------------------
+# Public: Profiles
+# -----------------------------
 class CommunityProfileListAPIView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = CommunityProfileSerializer
 
     def get_queryset(self):
         village = Village.objects.first()
-        return CommunityProfile.objects.filter(
-            village=village
-        ).annotate(
+        return CommunityProfile.objects.filter(village=village).annotate(
             group_order=Case(
                 When(group="leader", then=1),
                 When(group="committee", then=2),
@@ -200,62 +176,38 @@ class CommunityProfileListAPIView(generics.ListAPIView):
             )
         ).order_by("group_order", "level")
 
-#API รายการกองทุนที่มีให้เลือก
+
+# -----------------------------
+# Public: Funds
+# -----------------------------
 class FundTypeListAPIView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = FundTypeSerializer
 
     def get_queryset(self):
         village = Village.objects.first()
-        return FundType.objects.filter(
-            village=village,
-            is_active=True
-        )
+        return FundType.objects.filter(village=village, is_active=True)
 
-#API กองทุนรายปี
 class FundRecordListAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = FundRecordSerializer
 
     def get_queryset(self):
         fund_id = self.kwargs["fund_id"]
-        return FundRecord.objects.filter(
-            fund_type_id=fund_id
-        ).order_by("-year")
+        return FundRecord.objects.filter(fund_type_id=fund_id).order_by("-year")
 
-#รายชื่อผู้กู้ (ที่ซ่อนเลขบัญชีแล้ว)
 class FundLoanListAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = FundLoanSerializer
 
     def get_queryset(self):
         record_id = self.kwargs["record_id"]
-        return FundLoan.objects.filter(
-            fund_record_id=record_id
-        )
+        return FundLoan.objects.filter(fund_record_id=record_id)
 
-#Admin API จัดการข้อมูล
 
-#จัดการกับสถานที่สำคัญในหมู่บ้าน
-class VillagePlaceAdminAPIView(generics.ListCreateAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = VillagePlaceSerializer
-
-    def get_queryset(self):
-        village = Village.objects.first()
-        return VillagePlace.objects.filter(village=village)
-
-    def perform_create(self, serializer):
-        village = Village.objects.first()
-        serializer.save(village=village)
-
-#แก้ / ลบ สถานที่สำคัญในหมู่บ้าน
-class VillagePlaceDetailAdminAPIView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = VillagePlaceSerializer
-    queryset = VillagePlace.objects.all()
-
-#แก้ไข ข้อมูลหมู่บ้าน (Overview)
+# -----------------------------
+# Admin: Village Overview
+# -----------------------------
 class VillageAdminAPIView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = VillageSerializer
@@ -263,46 +215,104 @@ class VillageAdminAPIView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return Village.objects.first()
 
-#จัดการกับประวัติหมู่บ้าน
-class VillageHistoryAdminAPIView(generics.RetrieveUpdateAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = VillageHistorySerializer
 
-    def get_object(self):
-        village = Village.objects.first()
-        history, _ = VillageHistory.objects.get_or_create(village=village)
-        return history
-
-#จัดการกับข้อมูลเพิ่มเติม อาจจะมีการเพิ่มหรือลบข้อมูล
-class VillageExtraSectionAdminAPIView(generics.ListCreateAPIView):
+# -----------------------------
+# Admin: Sections CRUD
+# -----------------------------
+class VillageSectionAdminAPIView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = VillageExtraSectionSerializer
+    serializer_class = VillageSectionSerializer
+    queryset = VillageSection.objects.all().order_by("order", "id")
+
+class VillageSectionDetailAdminAPIView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = VillageSectionSerializer
+    queryset = VillageSection.objects.all()
+
+
+# -----------------------------
+# Admin: Places CRUD (ผูกกับ section)
+# -----------------------------
+class VillagePlaceAdminAPIView(generics.ListCreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = VillagePlaceSerializer
 
     def get_queryset(self):
-        village = Village.objects.first()
-        return VillageExtraSection.objects.filter(village=village)
+        section_id = self.kwargs.get("section_id")
+        return VillagePlace.objects.filter(section_id=section_id).order_by("order", "id")
 
     def perform_create(self, serializer):
-        village = Village.objects.first()
-        serializer.save(village=village)
+        section_id = self.kwargs.get("section_id")
+        section = get_object_or_404(VillageSection, id=section_id)
+        serializer.save(section=section)
 
-class VillageExtraSectionDetailAdminAPIView(
-    generics.RetrieveUpdateDestroyAPIView
-):
+class VillagePlaceDetailAdminAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = VillageExtraSectionSerializer
-    queryset = VillageExtraSection.objects.all()
+    serializer_class = VillagePlaceSerializer
+    queryset = VillagePlace.objects.all()
 
-#API โปรไฟล์ผู้นำ / กรรมการ / อสม ของแอดมิน
+
+# -----------------------------
+# Admin: Upload/Delete Images (B)
+# -----------------------------
+class VillageSectionImageUploadAdminAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request, section_id):
+        section = get_object_or_404(VillageSection, id=section_id)
+        files = request.FILES.getlist("images")
+        if not files:
+            return Response({"detail": "ไม่พบไฟล์"}, status=400)
+
+        created = [VillageSectionImage.objects.create(section=section, image=f) for f in files]
+        ser = VillageSectionImageSerializer(created, many=True, context={"request": request})
+        return Response(ser.data, status=201)
+
+class VillageSectionImageDeleteAdminAPIView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = VillageSectionImage.objects.all()
+
+    def perform_destroy(self, instance):
+        if instance.image:
+            instance.image.delete(save=False)
+        instance.delete()
+
+
+class VillagePlaceImageUploadAdminAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request, place_id):
+        place = get_object_or_404(VillagePlace, id=place_id)
+        files = request.FILES.getlist("images")
+        if not files:
+            return Response({"detail": "ไม่พบไฟล์"}, status=400)
+
+        created = [VillagePlaceImage.objects.create(place=place, image=f) for f in files]
+        ser = VillagePlaceImageSerializer(created, many=True, context={"request": request})
+        return Response(ser.data, status=201)
+
+class VillagePlaceImageDeleteAdminAPIView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = VillagePlaceImage.objects.all()
+
+    def perform_destroy(self, instance):
+        if instance.image:
+            instance.image.delete(save=False)
+        instance.delete()
+
+
+# -----------------------------
+# Admin: Profiles
+# -----------------------------
 class CommunityProfileAdminAPIView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = CommunityProfileSerializer
 
     def get_queryset(self):
         village = Village.objects.first()
-        return CommunityProfile.objects.filter(
-            village=village
-        ).annotate(
+        return CommunityProfile.objects.filter(village=village).annotate(
             group_order=Case(
                 When(group="leader", then=1),
                 When(group="committee", then=2),
@@ -315,14 +325,15 @@ class CommunityProfileAdminAPIView(generics.ListCreateAPIView):
         village = Village.objects.first()
         serializer.save(village=village)
 
-class CommunityProfileDetailAdminAPIView(
-    generics.RetrieveUpdateDestroyAPIView
-):
+class CommunityProfileDetailAdminAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = CommunityProfileSerializer
     queryset = CommunityProfile.objects.all()
 
-#Admin จัดการประเภทกองทุน
+
+# -----------------------------
+# Admin: Funds
+# -----------------------------
 class FundTypeAdminAPIView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = FundTypeSerializer
@@ -335,13 +346,11 @@ class FundTypeAdminAPIView(generics.ListCreateAPIView):
         village = Village.objects.first()
         serializer.save(village=village)
 
-#Admin แก้ / ลบ กองทุน
 class FundTypeDetailAdminAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = FundTypeSerializer
     queryset = FundType.objects.all()
 
-#Admin จัดการ กองทุนรายปี  ดอกเบี้ย
 class FundRecordAdminAPIView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = FundRecordSerializer
@@ -351,6 +360,5 @@ class FundRecordAdminAPIView(generics.ListCreateAPIView):
         return FundRecord.objects.filter(fund_type_id=fund_id)
 
     def perform_create(self, serializer):
-        fund_type = FundType.objects.get(id=self.kwargs["fund_id"])
+        fund_type = get_object_or_404(FundType, id=self.kwargs["fund_id"])
         serializer.save(fund_type=fund_type)
-

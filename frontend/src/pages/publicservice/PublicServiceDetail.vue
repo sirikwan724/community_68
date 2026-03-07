@@ -20,7 +20,7 @@ const serviceStatusText = computed(() => {
 const serviceStatusLabel = {
   normal: "พร้อมให้บริการ",
   maintenance: "อยู่ระหว่างซ่อมบำรุง",
-  closed: "งดให้บริการ",
+  broken: "งดให้บริการ",
 };
 
 const serviceStatusClass = computed(() => {
@@ -29,7 +29,7 @@ const serviceStatusClass = computed(() => {
   return {
     normal: "text-green-600",
     maintenance: "text-yellow-600",
-    closed: "text-red-600",
+    broken: "text-red-600",
   }[service.value.status];
 });
 
@@ -71,7 +71,7 @@ onMounted(async () => {
       <div class="flex items-center gap-3 mt-6">
         <router-link
           v-if="token && role === 'user'"
-          to="/report/create"
+          :to="`/service-reports/create/${service.id}`"
           class="inline-block px-5 py-2 bg-brand-darkBlue text-white rounded-lg shadow hover:bg-blue-900 transition"
         >
            รายงานปัญหาบริการนี้

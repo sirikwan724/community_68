@@ -27,10 +27,20 @@ const loadUserData = () => {
   const storedUser = localStorage.getItem("user");
   if (storedUser) {
     user.value = JSON.parse(storedUser);
-    // map ข้อมูลเข้าฟอร์มแก้ไขเตรียมไว้
-    Object.assign(editForm, user.value);
+
+    if (user.value.full_name) {
+      const parts = user.value.full_name.split(" ");
+      editForm.first_name = parts[0] || "";
+      editForm.last_name = parts.slice(1).join(" ") || "";
+    }
+
+    editForm.phone = user.value.phone || "";
+    editForm.address = user.value.address || "";
+    editForm.citizen_id = user.value.citizen_id || "";
+    editForm.house_owner_name = user.value.house_owner_name || "";
   }
 };
+
 
 const logout = () => {
   localStorage.clear();
@@ -42,54 +52,42 @@ const saveChanges = async () => {
   loading.value = true;
 
   try {
-    // 1. ส่วนที่แก้ไขได้ทันที (General Info)
-    // เช็คว่ามีการเปลี่ยนแปลงไหม
-    const generalChanged = 
-        editForm.first_name !== user.value.first_name || 
-        editForm.last_name !== user.value.last_name || 
-        editForm.phone !== user.value.phone;
+    const token = localStorage.getItem("access");
 
-    if (generalChanged) {
-        // TODO: ยิง API อัปเดตข้อมูลทั่วไป (PUT /api/accounts/me/)
-        // await axios.patch('http://localhost:8000/api/accounts/me/', {
-        //     first_name: editForm.first_name,
-        //     last_name: editForm.last_name,
-        //     phone: editForm.phone
-        // });
+    const response = await axios.patch(
+      "http://localhost:8000/api/accounts/me/update/",
+      {
+        full_name: editForm.first_name + " " + editForm.last_name,
+        phone: editForm.phone,
+        address: editForm.address,
+        citizen_id: editForm.citizen_id,
+        house_owner_name: editForm.house_owner_name,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-        // จำลองว่าอัปเดตสำเร็จ
-        user.value.first_name = editForm.first_name;
-        user.value.last_name = editForm.last_name;
-        user.value.phone = editForm.phone;
-        localStorage.setItem("user", JSON.stringify(user.value)); // อัปเดต LocalStorage
-    }
+    const fresh = await axios.get(
+      "http://localhost:8000/api/accounts/me/",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-    // 2. ส่วนที่ต้องส่งคำร้อง (Sensitive Info)
-    const sensitiveChanged = 
-        editForm.address !== user.value.address || 
-        editForm.citizen_id !== user.value.citizen_id || 
-        editForm.house_owner_name !== user.value.house_owner_name;
+    //อัปเดตข้อมูลจาก backend
+    user.value = fresh.data;
 
-    if (sensitiveChanged) {
-        // TODO: ยิง API สร้างคำร้อง (POST /api/requests/change-info/)
-        // await axios.post('http://localhost:8000/api/requests/change-info/', {
-        //     type: 'change_info',
-        //     new_data: {
-        //         address: editForm.address,
-        //         citizen_id: editForm.citizen_id,
-        //         house_owner_name: editForm.house_owner_name
-        //     }
-        // });
+    //อัปเดต localStorage
+    localStorage.setItem("user", JSON.stringify(fresh.data));
 
-        // แจ้งเตือน User
-        alert("✅ ข้อมูลส่วนตัวอัปเดตเรียบร้อย \n📝 ส่วนที่อยู่/ทะเบียนบ้าน ได้ส่งคำร้องไปยังผู้ใหญ่บ้านเพื่อตรวจสอบแล้วครับ");
-    } else if (generalChanged) {
-        alert("✅ บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว");
-    }
+    alert("✅ บันทึกข้อมูลเรียบร้อยแล้ว");
 
-    // ออกจากโหมดแก้ไข
     editing.value = false;
-
   } catch (err) {
     console.error(err);
     alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
@@ -97,6 +95,7 @@ const saveChanges = async () => {
     loading.value = false;
   }
 };
+
 
 // --- ฟังก์ชันขอลบบัญชี ---
 const requestDeleteAccount = async () => {
@@ -138,9 +137,9 @@ const cancelEdit = () => {
         
         <div class="flex flex-col items-center pb-4 border-b border-gray-100">
             <div class="w-20 h-20 rounded-full bg-brand-yellow text-brand-darkBlue flex items-center justify-center text-3xl font-bold shadow-md mb-3">
-                {{ user.first_name ? user.first_name[0] : 'U' }}
+                {{ user.full_name ? user.full_name[0] : 'U' }}
             </div>
-            <h2 class="text-xl font-bold text-gray-800">{{ user.first_name }} {{ user.last_name }}</h2>
+            <h2 class="text-xl font-bold text-gray-800">{{ user.full_name }}</h2>
             <span class="text-sm text-gray-500">@{{ user.username }}</span>
             <span class="mt-2 px-3 py-1 rounded-full text-xs font-medium"
                   :class="user.verified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'">
