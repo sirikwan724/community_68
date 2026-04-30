@@ -28,7 +28,6 @@ class VillageSection(models.Model):
     content = models.TextField(blank=True, default="")        # RICH
     description = models.TextField(blank=True, default="")    # PLACES
     order = models.PositiveIntegerField(default=0)
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

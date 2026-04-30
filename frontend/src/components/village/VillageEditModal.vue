@@ -4,7 +4,7 @@ import RichSection from "./sections/RichSection.vue";
 import PlacesSection from "./sections/PlacesSection.vue";
 
 const isHydrating = ref(false);
-
+const sectionPreviews = ref([]);
 const props = defineProps({
   open: { type: Boolean, default: false },
   mode: { type: String, default: "create" },
@@ -20,6 +20,27 @@ const TYPE_OPTIONS = [
   { value: "RICH", label: "ข้อมูล/บทความ (หัวข้อ + รายละเอียด + รูป)" },
   { value: "PLACES", label: "รายการสถานที่ (หัวข้อ + รายละเอียด + หลายรายการย่อย)" },
 ];
+
+const onPickSectionFiles = (e) => {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+
+  form.imageFiles = [...(form.imageFiles || []), ...files];
+  sectionPreviews.value = form.imageFiles.map((f) => URL.createObjectURL(f));
+
+  // reset input เพื่อให้เลือกไฟล์เดิมซ้ำได้
+  e.target.value = "";
+};
+
+const onPickPlaceFiles = (place, e) => {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+
+  place.imageFiles = [...(place.imageFiles || []), ...files];
+  place._previews = place.imageFiles.map((f) => URL.createObjectURL(f));
+
+  e.target.value = "";
+};
 
 /** ---------- form state ---------- */
 const form = reactive({
@@ -62,6 +83,7 @@ const resetForm = () => {
       imageFiles: [],
     },
   ];
+  sectionPreviews.value = [];
 };
 
 /** เติมข้อมูลเมื่อ edit */
@@ -85,19 +107,25 @@ const loadFromInitial = (sec) => {
     .join("\n");
 
   form.imageFiles = [];
+  sectionPreviews.value = [];
   }
 
   if (form.type === "PLACES") {
     form.description = sec.description || "";
-    const items = Array.isArray(sec.items) ? sec.items : [];
+    const items = Array.isArray(sec.items) ? sec.items : (Array.isArray(sec.places) ? sec.places : []);
     form.places = items.length
       ? items.map((p) => ({
           id: p.id || uid(),
           name: p.name || "",
           detail: p.detail || "",
-          imagesText: (p.images || []).map((x) => (typeof x === "string" ? x : x?.url)).filter(Boolean).join("\n"),
+          imagesText: (p.images || [])
+            .map((x) => (typeof x === "string" ? x : x?.url))
+            .filter(Boolean)
+            .join("\n"),
+          imageFiles: [],
+          _previews: [],
         }))
-      : [{ id: uid(), name: "", detail: "", imagesText: "" }];
+      : [{ id: uid(), name: "", detail: "", imagesText: "", imageFiles: [], _previews: [] }];
   }
 
   isHydrating.value = false;
@@ -120,7 +148,7 @@ watch(() => form.type, (t) => {
 
   if (t === "RICH") {
     form.description = "";
-    form.places = [{ id: uid(), name: "", detail: "", imagesText: "" }];
+    form.places = [{ id: uid(), name: "", detail: "", imagesText: "", imageFiles: [], _previews: [] }];
   } else if (t === "PLACES") {
     form.contentText = "";
     form.imagesText = "";
@@ -170,7 +198,7 @@ const previewSection = computed(() => {
 });
 
 const addPlace = () => {
-  form.places.push({ id: uid(), name: "", detail: "", imagesText: "" });
+  form.places.push({ id: uid(), name: "", detail: "", imagesText: "", imageFiles: [], _previews: [] });
 };
 
 const removePlace = (id) => {
@@ -189,7 +217,15 @@ const save = () => {
   }
 
   // ส่งออกเป็น section ตาม schema ที่ VillageTab ใช้
-  emit("save", previewSection.value);
+  emit("save", {
+    section: previewSection.value,
+    sectionFiles: form.imageFiles,
+    places: form.places.map((p) => ({
+      name: p.name,
+      detail: p.detail,
+      files: p.imageFiles || [],
+    })),
+  });
   emit("close");
 };
 </script>
@@ -200,7 +236,7 @@ const save = () => {
 
     <!-- modal -->
     <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="w-full max-w-6xl bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div class="w-full max-w-6xl bg-white rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
         <!-- header -->
         <div class="px-6 py-4 border-b flex items-center justify-between">
           <div>
@@ -218,7 +254,7 @@ const save = () => {
         </div>
 
         <!-- body -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-0 overflow-y-auto flex-1">
           <!-- left: form -->
           <div class="p-6 border-b lg:border-b-0 lg:border-r">
             <div class="space-y-4">
@@ -259,12 +295,28 @@ const save = () => {
                   <label class="block text-sm font-medium text-gray-700 mb-1">
                     รูปภาพ (ใส่ URL ได้หลายบรรทัด — เว้นว่างได้)
                   </label>
-                  <textarea
-                    v-model="form.imagesText"
-                    rows="4"
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
                     class="w-full border rounded-lg px-3 py-2"
-                    placeholder="https://...jpg&#10;https://...png"
-                  ></textarea>
+                    @change="onPickSectionFiles"
+                  />
+                  <p v-if="sectionPreviews.length" class="text-xs text-gray-500 mt-1">
+                    เลือกแล้ว {{ sectionPreviews.length }} ไฟล์
+                  </p>
+
+                  <div v-if="sectionPreviews.length" class="mt-3 grid grid-cols-3 gap-2">
+                    <img
+                      v-for="(src,i) in sectionPreviews"
+                      :key="i"
+                      :src="src"
+                      class="w-full h-24 object-cover rounded"
+                    />
+                  </div>
+                  <p class="text-xs text-gray-500 mt-1">
+                    เลือกได้หลายไฟล์ (จะอัปโหลดเข้าระบบ)
+                  </p>
                 </div>
               </div>
 
@@ -330,12 +382,21 @@ const save = () => {
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                           รูปสถานที่ (URL หลายบรรทัด — เว้นว่างได้)
                         </label>
-                        <textarea
-                          v-model="p.imagesText"
-                          rows="3"
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
                           class="w-full border rounded-lg px-3 py-2"
-                          placeholder="https://...jpg&#10;https://...png"
-                        ></textarea>
+                          @change="(e) => onPickPlaceFiles(p, e)"
+                        />
+                        <div v-if="p._previews?.length" class="mt-3 grid grid-cols-3 gap-2">
+                          <img
+                            v-for="(src,i) in p._previews"
+                            :key="i"
+                            :src="src"
+                            class="w-full h-24 object-cover rounded"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

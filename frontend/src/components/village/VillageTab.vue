@@ -12,14 +12,6 @@ defineEmits(["create-section", "edit-section"]);
 
 <template>
   <section class="space-y-8">
-    <div v-if="isAdmin" class="flex justify-end">
-      <button
-        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        @click="$emit('create-section')"
-      >
-        + เพิ่มหัวข้อ
-      </button>
-    </div>
 
     <div v-if="!sections.length" class="text-gray-500">
       ยังไม่มีข้อมูลหัวข้อหมู่บ้าน

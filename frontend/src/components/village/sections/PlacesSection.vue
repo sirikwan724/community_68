@@ -1,6 +1,15 @@
 <script setup>
-defineProps({
+import { computed } from "vue";
+
+const props = defineProps({
   section: { type: Object, required: true },
+});
+
+// รองรับทั้ง schema เก่า (items) และ schema ใหม่จาก backend (places)
+const places = computed(() => {
+  if (Array.isArray(props.section?.items)) return props.section.items;
+  if (Array.isArray(props.section?.places)) return props.section.places;
+  return [];
 });
 </script>
 
@@ -17,18 +26,18 @@ defineProps({
     </p>
 
     <!-- ไม่มีรายการ -->
-    <div v-if="!section.items || !section.items.length" class="mt-4 text-gray-500">
+    <div v-if="!places.length" class="mt-4 text-gray-500">
       ยังไม่มีรายการสถานที่
     </div>
 
     <!-- มีรายการสถานที่ -->
     <div v-else class="mt-4 space-y-6">
       <div
-        v-for="place in section.items"
+        v-for="place in places"
         :key="place.id"
         class="p-4 rounded-lg border bg-gray-50"
       >
-        <!-- ชื่อสถานที่ (ตัวหนาเล็กกว่าหัวข้อหลัก) -->
+        <!-- ชื่อสถานที่ -->
         <h3 class="text-lg font-bold text-gray-900">
           {{ place.name }}
         </h3>
@@ -45,7 +54,7 @@ defineProps({
         >
           <img
             v-for="(img, i) in place.images"
-            :key="i"
+            :key="img.id ?? i"
             :src="img.url || img"
             class="w-full h-44 object-cover rounded-lg border"
             alt="place image"

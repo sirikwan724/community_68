@@ -31,9 +31,7 @@ const sections = computed(() => {
 // draft ที่แก้ได้
 const draftSections = ref([]);
 watch(sections, (val) => {
-  if (!draftSections.value.length) {
-    draftSections.value = val;
-  }
+  draftSections.value = val;
 }, { immediate: true });
 
 // modal state
@@ -53,40 +51,71 @@ const openEdit = (sec) => {
   showModal.value = true;
 };
 
-const handleSave = async (savedSection) => {
+const handleSave = async ({ section, sectionFiles, places }) => {
   try {
-    // 1) create หรือ update section
-    let sectionId = savedSection.id;
+    let sectionId = section.id;
 
+    // create / update section
     if (modalMode.value === "create") {
       const payload = {
-        type: savedSection.type,
-        title: savedSection.title,
-        content: savedSection.type === "RICH" ? (savedSection.content || []).join("\n") : "",
-        description: savedSection.type === "PLACES" ? (savedSection.description || "") : "",
+        type: section.type,
+        title: section.title,
+        content: section.type === "RICH" ? (section.content || []).join("\n") : "",
+        description: section.type === "PLACES" ? (section.description || "") : "",
         order: 0,
       };
-
       const res = await api.post("/admin/village/sections/", payload);
       sectionId = res.data.id;
     } else {
       const payload = {
-        type: savedSection.type,
-        title: savedSection.title,
-        content: savedSection.type === "RICH" ? (savedSection.content || []).join("\n") : "",
-        description: savedSection.type === "PLACES" ? (savedSection.description || "") : "",
+        type: section.type,
+        title: section.title,
+        content: section.type === "RICH" ? (section.content || []).join("\n") : "",
+        description: section.type === "PLACES" ? (section.description || "") : "",
       };
-
       await api.patch(`/admin/village/sections/${sectionId}/`, payload);
     }
 
-    // 2) TODO: อัปโหลดรูปไฟล์จริง (ทำในขั้นถัดไป)
-    // - section images: POST /admin/village/sections/<id>/images/
-    // - place images: POST /admin/village/places/<id>/images/
+    // upload รูปของหัวข้อ (section)
+    if (sectionFiles?.length) {
+      const fd = new FormData();
+      sectionFiles.forEach((f) => fd.append("images", f));
+      await api.post(`/admin/village/sections/${sectionId}/images/`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    }
 
-    // 3) โหลดใหม่จาก backend เพื่อให้ refresh แล้วไม่หาย
+    // ถ้าเป็น PLACES: สร้างสถานที่ + upload รูปสถานที่
+    if (section.type === "PLACES") {
+        // ถ้าเป็นโหมดแก้ไข: ลบสถานที่เดิมของ section นี้ก่อน (กันซ้ำ)
+      if (modalMode.value === "edit") {
+        const oldPlaces = editingSection.value?.places || [];
+        for (const old of oldPlaces) {
+          await api.delete(`/admin/village/places/${old.id}/`);
+        }
+      }
+
+      for (const p of (places || [])) {
+        const placeRes = await api.post(`/admin/village/sections/${sectionId}/places/`, {
+          name: p.name,
+          detail: p.detail,
+          order: 0,
+        });
+        const placeId = placeRes.data.id;
+
+        if (p.files?.length) {
+          const fd = new FormData();
+          p.files.forEach((f) => fd.append("images", f));
+          await api.post(`/admin/village/places/${placeId}/images/`, fd, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        }
+      }
+    }
+
+    // reload
     await fetchVillage();
-
+    showModal.value = false;
     alert("บันทึกข้อมูลลงฐานข้อมูลเรียบร้อย ✅");
   } catch (err) {
     console.error(err);
@@ -102,13 +131,21 @@ const handleSave = async (savedSection) => {
       <div>
         <h1 class="text-2xl font-bold text-gray-800">จัดการข้อมูลหมู่บ้าน</h1>
       </div>
+      <div class="flex items-center gap-3">
+        <button
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          @click="openCreate"
+        >
+          + เพิ่มหัวข้อ
+        </button>
 
-      <router-link
-        to="/admin/dashboard"
-        class="flex items-center gap-2 text-gray-500 hover:text-blue-700 transition font-medium px-4 py-2 rounded-lg hover:bg-blue-50 border border-transparent hover:border-blue-100"
-      >
-        กลับหน้าหลัก
-      </router-link>
+        <router-link
+          to="/admin/dashboard"
+          class="flex items-center gap-2 text-gray-500 hover:text-blue-700 transition font-medium px-4 py-2 rounded-lg hover:bg-blue-50 border border-transparent hover:border-blue-100"
+        >
+          กลับหน้าหลัก
+        </router-link>
+      </div>
     </div>
 
     <div class="bg-white rounded-xl shadow p-6">
