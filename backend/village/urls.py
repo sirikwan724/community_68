@@ -10,6 +10,9 @@ from .views import (
     # Admin (overview)
     VillageAdminAPIView,
 
+    # Admin อัปเดตพิกัดหมู่บ้าน
+    VillageLocationUpdateAPIView,
+
     # Admin (sections/places)
     VillageSectionAdminAPIView,
     VillageSectionDetailAdminAPIView,
@@ -43,6 +46,9 @@ urlpatterns = [
 
     # Admin: overview
     path("admin/village/overview/", VillageAdminAPIView.as_view()),
+
+    # Admin อัปเดต/ดูพิกัดหมู่บ้าน
+    path("admin/village/location/", VillageLocationUpdateAPIView.as_view()),
 
     # Admin: sections CRUD
     path("admin/village/sections/", VillageSectionAdminAPIView.as_view()),

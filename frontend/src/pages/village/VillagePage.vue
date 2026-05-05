@@ -6,12 +6,13 @@ import api from "@/services/api";
 import VillageTab from "@/components/village/VillageTab.vue";
 import LeaderTab from "@/components/village/LeaderTab.vue";
 import FundTab from "@/components/village/FundTab.vue";
+import VillageMap from "@/components/village/VillageMap.vue";
 
 const router = useRouter();
 
 const isLoggedIn = computed(() => !!localStorage.getItem("access"));
 
-const activeTab = ref("leader");
+const activeTab = ref("overview");
 
 const villageData = ref(null);
 const loading = ref(false);
@@ -43,6 +44,7 @@ const fetchVillage = async () => {
 };
 
 const sections = computed(() => villageData.value?.sections ?? []);
+const overview = computed(() => villageData.value?.overview ?? {}); //เป็นส่วนของ overview ข้อมูลหมู่บ้านและพิกัด กับ sectionsที่เป็นหัวข้อต่างๆ เพราะฉะนั้นต้องทำการดึง overview ออกมาเพื่อที่จะเอาพิกัดไปแสดงบนแผนที่
 
 onMounted(fetchVillage);
 </script>
@@ -80,11 +82,18 @@ onMounted(fetchVillage);
         <div v-if="loading">กำลังโหลดข้อมูล...</div>
         <div v-else-if="errorMsg" class="text-red-500">{{ errorMsg }}</div>
 
-        <VillageTab
-          v-if="activeTab === 'overview'"
-          :sections="sections"
-          :isAdmin="false"
-        />
+        <div v-if="activeTab === 'overview'">
+          <div class="mb-8">
+            <h2 class="text-lg font-semibold text-gray-700 mb-3">ที่ตั้งหมู่บ้าน</h2>
+            <VillageMap
+              :latitude="overview.latitude"
+              :longitude="overview.longitude"
+              :villageName="overview.name"
+              height="340px"
+            />
+          </div>
+          <VillageTab :sections="sections" :isAdmin="false" />
+        </div>
 
         <LeaderTab
           v-else-if="activeTab === 'leader'"

@@ -3,11 +3,15 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 import HeroSlider from "@/components/HeroSlider.vue"; 
+import VillageMap from "@/components/village/VillageMap.vue";
 
 const router = useRouter();
 const isLoggedIn = ref(false);
 const user = ref({});
 const newsList = ref([]);
+const villageLat = ref(null);
+const villageLng = ref(null);
+const villageName = ref("หมู่บ้านสร้างขุนศรี");
 
 // โหลดข้อมูลจาก localStorage
 const token = localStorage.getItem("access");
@@ -36,7 +40,19 @@ onMounted(async () => {
     console.error("ไม่สามารถดึงข่าวได้", err);
     newsList.value = [];
   }
-});
+
+  try {
+    const res = await axios.get("http://localhost:8000/api/village/full/");
+    const overview = res.data?.overview;
+    if (overview) {
+      villageLat.value = overview.latitude;
+      villageLng.value = overview.longitude;
+      if (overview.name) villageName.value = overview.name;
+    }
+  } catch (err) {
+    console.error("ไม่สามารถดึงพิกัดหมู่บ้านได้", err);
+  }
+}); //โค้ดที่จะรันตอนหน้าเว็บโหลดเสร็จเพื่อที่จะดึงพิกัดจาก API ตอนนี้เพื่อให้แผนที่แสดงผลได้ทันทีที่เปิดหน้า โดยไม่ต้องรอให้ผู้ใช้กดปุ่มอะไร
 
 const logout = () => {
   localStorage.removeItem("user");
@@ -72,6 +88,25 @@ const logout = () => {
     </nav>
 
     <HeroSlider class="mb-10" />
+
+    <!-- แผนที่หมู่บ้าน (ที่ทุกคนเห็น) -->
+    <section class="mb-10">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl font-bold text-gray-800">ที่ตั้งหมู่บ้านสร้างขุนศรี</h2>
+        <router-link
+          to="/village"
+          class="text-sm text-blue-600 hover:underline"
+        >
+          ข้อมูลหมู่บ้าน →
+        </router-link>
+      </div>
+      <VillageMap
+        :latitude="villageLat"
+        :longitude="villageLng"
+        :villageName="villageName"
+        height="250px"
+      />
+    </section>
 
     <!-- ====================  NOT LOGGED IN ==================== -->
     <div v-if="!isLoggedIn">

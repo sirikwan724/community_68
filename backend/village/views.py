@@ -34,6 +34,14 @@ from .serializers import (
     FundLoanSerializer,
 )
 
+class IsAdminRole(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            request.user.role in ["admin", "superadmin"]
+        )
+    
 # -----------------------------
 # Helpers for Excel import
 # -----------------------------
@@ -255,29 +263,35 @@ class VillagePlaceDetailAdminAPIView(generics.RetrieveUpdateDestroyAPIView):
 # -----------------------------
 # Admin: Upload/Delete Images (B)
 # -----------------------------
+class VillageSectionImageDeleteAdminAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk):
+        img = get_object_or_404(VillageSectionImage, pk=pk)
+        img.caption = request.data.get("caption", img.caption)
+        img.save(update_fields=["caption"])
+        return Response({"id": img.id, "caption": img.caption})
+
+    def delete(self, request, pk):
+        img = get_object_or_404(VillageSectionImage, pk=pk)
+        if img.image:
+            img.image.delete(save=False)
+        img.delete()
+        return Response(status=204)
+
 class VillageSectionImageUploadAdminAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser]
 
     def post(self, request, section_id):
         section = get_object_or_404(VillageSection, id=section_id)
-        files = request.FILES.getlist("images")
-        if not files:
+        image = request.FILES.get("image")      # ← เปลี่ยนจาก getlist("images")
+        if not image:
             return Response({"detail": "ไม่พบไฟล์"}, status=400)
-
-        created = [VillageSectionImage.objects.create(section=section, image=f) for f in files]
-        ser = VillageSectionImageSerializer(created, many=True, context={"request": request})
+        caption = request.data.get("caption", "")
+        img = VillageSectionImage.objects.create(section=section, image=image, caption=caption)
+        ser = VillageSectionImageSerializer(img, context={"request": request})
         return Response(ser.data, status=201)
-
-class VillageSectionImageDeleteAdminAPIView(generics.DestroyAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    queryset = VillageSectionImage.objects.all()
-
-    def perform_destroy(self, instance):
-        if instance.image:
-            instance.image.delete(save=False)
-        instance.delete()
-
 
 class VillagePlaceImageUploadAdminAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -362,3 +376,30 @@ class FundRecordAdminAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         fund_type = get_object_or_404(FundType, id=self.kwargs["fund_id"])
         serializer.save(fund_type=fund_type)
+
+
+# -----------------------------
+# Admin: Update Village Location (lat/lng)
+# -----------------------------
+class VillageLocationUpdateAPIView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def patch(self, request):
+        village = Village.objects.first()
+        if not village:
+            return Response({"detail": "ไม่พบข้อมูลหมู่บ้าน"}, status=404)
+
+        lat = request.data.get("latitude")
+        lng = request.data.get("longitude")
+
+        if lat is None or lng is None:
+            return Response({"detail": "กรุณาระบุ latitude และ longitude"}, status=400)
+
+        try:
+            village.latitude = float(lat)
+            village.longitude = float(lng)
+            village.save(update_fields=["latitude", "longitude", "updated_at"])
+        except (ValueError, TypeError):
+            return Response({"detail": "ค่าพิกัดไม่ถูกต้อง"}, status=400)
+
+        return Response({"latitude": str(village.latitude), "longitude": str(village.longitude)})

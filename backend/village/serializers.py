@@ -44,7 +44,22 @@ class VillagePlaceImageSerializer(serializers.ModelSerializer):
 class VillageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Village
-        fields = ["id", "name", "description", "address", "updated_at"]
+        # ============================================================
+        # [เพิ่มใหม่] เพิ่ม "latitude" และ "longitude" เข้า fields
+        # ============================================================
+        # ก่อนหน้าคือ: fields = ["id", "name", "description", "address", "updated_at"]
+        # ตอนนี้เพิ่มอีก 2 field ท้ายสุด
+        # ผลลัพธ์ที่ Frontend จะได้รับ (JSON):
+        # {
+        #   "id": 1,
+        #   "name": "บ้านสร้างขุนศรี",
+        #   "description": "...",
+        #   "address": "...",
+        #   "updated_at": "2026-04-30T...",
+        #   "latitude": "15.228700",   <-- ใหม่
+        #   "longitude": "104.856100"  <-- ใหม่
+        # }
+        fields = ["id", "name", "description", "address", "updated_at", "latitude", "longitude"]
 
 
 class VillagePlaceSerializer(serializers.ModelSerializer):
@@ -66,7 +81,7 @@ class VillageSectionSerializer(serializers.ModelSerializer):
 
 
 # ---------------------------
-# Community / Fund serializers 
+# Community / Fund serializers
 # ---------------------------
 class CommunityProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -76,7 +91,6 @@ class CommunityProfileSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         village = self.instance.village if self.instance else Village.objects.first()
-
         group = data.get("group")
         level = data.get("level")
 
@@ -86,7 +100,6 @@ class CommunityProfileSerializer(serializers.ModelSerializer):
 
         if level == 1 and queryset.count() >= 1:
             raise serializers.ValidationError("ในแต่ละกลุ่มมีตำแหน่งหลักได้เพียง 1 คน")
-
         if level == 2 and queryset.count() >= 3:
             raise serializers.ValidationError("ในแต่ละกลุ่มมีรองได้ไม่เกิน 3 คน")
 
@@ -95,7 +108,7 @@ class CommunityProfileSerializer(serializers.ModelSerializer):
 
 class FundTypeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = FundType
+        model  = FundType
         fields = ["id", "name", "description", "is_active"]
 
 
@@ -103,16 +116,10 @@ class FundRecordSerializer(serializers.ModelSerializer):
     fund_name = serializers.CharField(source="fund_type.name", read_only=True)
 
     class Meta:
-        model = FundRecord
+        model  = FundRecord
         fields = [
-            "id",
-            "fund_type",
-            "fund_name",
-            "year",
-            "interest_rate",
-            "created_at",
-            "updated_at",
-            "last_uploaded_file",
+            "id", "fund_type", "fund_name", "year",
+            "interest_rate", "created_at", "updated_at", "last_uploaded_file",
         ]
 
 
@@ -120,7 +127,7 @@ class FundLoanSerializer(serializers.ModelSerializer):
     masked_account = serializers.SerializerMethodField()
 
     class Meta:
-        model = FundLoan
+        model  = FundLoan
         fields = ["id", "full_name", "masked_account", "loan_amount", "interest_amount", "purpose", "created_at"]
 
     def get_masked_account(self, obj):
@@ -128,7 +135,7 @@ class FundLoanSerializer(serializers.ModelSerializer):
 
 
 class FundLoanImportSerializer(serializers.Serializer):
-    full_name = serializers.CharField()
+    full_name    = serializers.CharField()
     bank_account = serializers.CharField()
-    loan_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
-    purpose = serializers.CharField(required=False, allow_blank=True)
+    loan_amount  = serializers.DecimalField(max_digits=12, decimal_places=2)
+    purpose      = serializers.CharField(required=False, allow_blank=True)

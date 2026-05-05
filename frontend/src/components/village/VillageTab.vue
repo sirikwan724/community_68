@@ -7,7 +7,7 @@ defineProps({
   sections: { type: Array, default: () => [] },
 });
 
-defineEmits(["create-section", "edit-section"]);
+defineEmits(["create-section", "edit-section", "delete-section", "refresh"]);
 </script>
 
 <template>
@@ -18,21 +18,31 @@ defineEmits(["create-section", "edit-section"]);
     </div>
 
     <div v-for="sec in sections" :key="sec.id" class="border-b pb-8">
-      <RichSection v-if="sec.type === 'RICH'" :section="sec" />
+
+      <!-- ปุ่ม admin อยู่มุมขวาบนของแต่ละหัวข้อ -->
+      <div v-if="isAdmin" class="flex justify-end gap-2 mb-3">
+        <button
+          class="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200"
+          @click="$emit('edit-section', sec)"
+        >แก้ไขหัวข้อ</button>
+        <button
+          class="px-3 py-1 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100"
+          @click="$emit('delete-section', sec)"
+        >ลบหัวข้อ</button>
+      </div>
+
+      <RichSection
+        v-if="sec.type === 'RICH'"
+        :section="sec"
+        :isAdmin="isAdmin"
+        @refresh="$emit('refresh')"
+      />
       <PlacesSection v-else-if="sec.type === 'PLACES'" :section="sec" />
 
       <div v-else class="text-red-500">
         ไม่รองรับประเภทหัวข้อ: {{ sec.type }}
       </div>
 
-      <div v-if="isAdmin" class="mt-4">
-        <button
-          class="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
-          @click="$emit('edit-section', sec)"
-        >
-          แก้ไขหัวข้อนี้
-        </button>
-      </div>
     </div>
   </section>
 </template>

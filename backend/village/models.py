@@ -6,9 +6,36 @@ from django.core.exceptions import ValidationError
 # ---------------------------
 class Village(models.Model):
     name = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
+    description = models.TextField(blank=True) # เก็บตัวเลขทศนิยมที่แม่นยำ (ไม่ใช้ Float เพราะ Float มีปัญหาเรื่องความแม่นยำ)
     address = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # ========================================
+    # [เพิ่มใหม่] พิกัดที่ตั้งหมู่บ้าน
+    # ========================================
+    # ใช้ DecimalField แทน FloatField เพราะ:
+    #   - DecimalField เก็บเลขทศนิยมแม่นยำกว่า (ไม่มีปัญหา floating-point rounding)
+    #   - max_digits=9  หมายถึงตัวเลขรวมทั้งหมดไม่เกิน 9 หลัก เช่น 15.228700 = 8 หลัก
+    #   - decimal_places=6 หมายถึงทศนิยม 6 ตำแหน่ง ซึ่งแม่นยำระดับ ~0.1 เมตร เพียงพอ
+    #   - null=True, blank=True เพื่อให้ยังไม่กรอกพิกัดก็ได้
+    #     (ถ้าไม่ใส่ null=True Django จะบังคับกรอกตั้งแต่แรก migrate)
+
+    latitude = models.DecimalField(
+        max_digits=9, #ตัวเลขรวมกันได้ไม่เกิน 9 หลัก เช่น 15.234567
+        decimal_places=6, #ทศนิยม 6 ตำแหน่ง — พิกัดโลกต้องการแค่นี้
+        null=True, #ยอมให้เป็น NULL ใน database ได้ (ยังไม่ตั้งพิกัด)
+        blank=True, #ยอมให้ส่งค่าว่างจาก Form/API ได้
+        verbose_name="ละติจูด"
+    )
+    longitude = models.DecimalField(
+        max_digits=9, #ตัวเลขรวมกันได้ไม่เกิน 9 หลัก เช่น 15.234567
+        decimal_places=6, #ทศนิยม 6 ตำแหน่ง — พิกัดโลกต้องการแค่นี้
+        null=True, #ยอมให้เป็น NULL ใน database ได้ (ยังไม่ตั้งพิกัด)
+        blank=True, #ยอมให้ส่งค่าว่างจาก Form/API ได้
+        verbose_name="ลองจิจูด"
+    )
+    # (ถ้าไม่ใส่ null=True Django จะบังคับกรอกในขั้นตอนตั้งแต่แรกการmigrate)
+    # ========================================
 
     def __str__(self):
         return self.name
@@ -23,13 +50,13 @@ class VillageSection(models.Model):
         ("PLACES", "Places List"),
     )
 
-    type = models.CharField(max_length=20, choices=TYPE_CHOICES, default="RICH")
-    title = models.CharField(max_length=255)
-    content = models.TextField(blank=True, default="")        # RICH
-    description = models.TextField(blank=True, default="")    # PLACES
-    order = models.PositiveIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    type        = models.CharField(max_length=20, choices=TYPE_CHOICES, default="RICH")
+    title       = models.CharField(max_length=255)
+    content     = models.TextField(blank=True, default="")        # RICH
+    description = models.TextField(blank=True, default="")        # PLACES
+    order       = models.PositiveIntegerField(default=0)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["order", "id"]
@@ -42,14 +69,10 @@ def section_image_path(instance, filename):
     return f"village/sections/{instance.section_id}/{filename}"
 
 class VillageSectionImage(models.Model):
-    section = models.ForeignKey(
-        VillageSection,
-        on_delete=models.CASCADE,
-        related_name="images"
-    )
-    image = models.ImageField(upload_to=section_image_path)
-    caption = models.CharField(max_length=255, blank=True, default="")
-    order = models.PositiveIntegerField(default=0)
+    section    = models.ForeignKey(VillageSection, on_delete=models.CASCADE, related_name="images")
+    image      = models.ImageField(upload_to=section_image_path)
+    caption    = models.CharField(max_length=255, blank=True, default="")
+    order      = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -67,9 +90,9 @@ class VillagePlace(models.Model):
         null=True,
         blank=True,
     )
-    name = models.CharField(max_length=255)
+    name   = models.CharField(max_length=255)
     detail = models.TextField(blank=True, default="")
-    order = models.PositiveIntegerField(default=0)
+    order  = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ["order", "id"]
@@ -83,14 +106,10 @@ def place_image_path(instance, filename):
 
 
 class VillagePlaceImage(models.Model):
-    place = models.ForeignKey(
-        VillagePlace,
-        on_delete=models.CASCADE,
-        related_name="images"
-    )
-    image = models.ImageField(upload_to=place_image_path)
-    caption = models.CharField(max_length=255, blank=True, default="")
-    order = models.PositiveIntegerField(default=0)
+    place      = models.ForeignKey(VillagePlace, on_delete=models.CASCADE, related_name="images")
+    image      = models.ImageField(upload_to=place_image_path)
+    caption    = models.CharField(max_length=255, blank=True, default="")
+    order      = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -107,23 +126,16 @@ class CommunityProfile(models.Model):
         ("volunteer", "อสม."),
     ]
 
-    village = models.ForeignKey(
-        Village,
-        on_delete=models.CASCADE,
-        related_name="profiles"
-    )
-
-    group = models.CharField(max_length=20, choices=GROUP_CHOICES)
-    position = models.CharField(max_length=100)
-    level = models.PositiveIntegerField(default=3)
-
-    full_name = models.CharField(max_length=255, blank=True)
-    phone = models.CharField(max_length=50, blank=True)
-    email = models.EmailField(blank=True, null=True)
+    village     = models.ForeignKey(Village, on_delete=models.CASCADE, related_name="profiles")
+    group       = models.CharField(max_length=20, choices=GROUP_CHOICES)
+    position    = models.CharField(max_length=100)
+    level       = models.PositiveIntegerField(default=3)
+    full_name   = models.CharField(max_length=255, blank=True)
+    phone       = models.CharField(max_length=50, blank=True)
+    email       = models.EmailField(blank=True, null=True)
     description = models.TextField(blank=True)
-
-    image = models.ImageField(upload_to="village/profiles/", blank=True, null=True)
-    is_active = models.BooleanField(default=True)
+    image       = models.ImageField(upload_to="village/profiles/", blank=True, null=True)
+    is_active   = models.BooleanField(default=True)
 
     def clean(self):
         if self.level == 1:
@@ -152,31 +164,22 @@ class CommunityProfile(models.Model):
 # Funds
 # ---------------------------
 class FundType(models.Model):
-    village = models.ForeignKey(
-        Village,
-        on_delete=models.CASCADE,
-        related_name="fund_types"
-    )
-    name = models.CharField(max_length=255)
+    village     = models.ForeignKey(Village, on_delete=models.CASCADE, related_name="fund_types")
+    name        = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
+    is_active   = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
 
 
 class FundRecord(models.Model):
-    fund_type = models.ForeignKey(
-        FundType,
-        on_delete=models.CASCADE,
-        related_name="records"
-    )
-    year = models.PositiveIntegerField()
-    interest_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="อัตราดอกเบี้ย (%)")
-
+    fund_type          = models.ForeignKey(FundType, on_delete=models.CASCADE, related_name="records")
+    year               = models.PositiveIntegerField()
+    interest_rate      = models.DecimalField(max_digits=5, decimal_places=2, help_text="อัตราดอกเบี้ย (%)")
     last_uploaded_file = models.CharField(max_length=255, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at         = models.DateTimeField(auto_now_add=True)
+    updated_at         = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ("fund_type", "year")
@@ -186,18 +189,13 @@ class FundRecord(models.Model):
 
 
 class FundLoan(models.Model):
-    fund_record = models.ForeignKey(
-        FundRecord,
-        on_delete=models.CASCADE,
-        related_name="loans"
-    )
-
-    full_name = models.CharField(max_length=255)
-    bank_account = models.CharField(max_length=50)
-    loan_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    fund_record     = models.ForeignKey(FundRecord, on_delete=models.CASCADE, related_name="loans")
+    full_name       = models.CharField(max_length=255)
+    bank_account    = models.CharField(max_length=50)
+    loan_amount     = models.DecimalField(max_digits=12, decimal_places=2)
     interest_amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="ดอกเบี้ยที่ระบบคำนวณให้")
-    purpose = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    purpose         = models.TextField(blank=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
 
     def masked_account(self):
         if len(self.bank_account) >= 6:
