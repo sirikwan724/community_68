@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
 
@@ -8,6 +8,7 @@ const router = useRouter();
 const token = localStorage.getItem("access");
 
 const request_type = ref("");
+const custom_type = ref(""); 
 const start_date = ref("");
 const start_time = ref("");
 const end_date = ref("");
@@ -20,13 +21,22 @@ const handleFile = (e) => {
   file.value = e.target.files[0];
 };
 
+const minDate = computed(() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
+});
+
 const submitForm = async () => {
   try {
     const start_datetime = `${start_date.value}T${start_time.value}`;
     const end_datetime = `${end_date.value}T${end_time.value}`;
 
     const formData = new FormData();
-    formData.append("request_type", request_type.value);
+    const finalType = request_type.value === "อื่นๆ" && custom_type.value.trim()
+      ? custom_type.value.trim()
+      : request_type.value;
+    formData.append("request_type", finalType);
     formData.append("start_datetime", start_datetime);
     formData.append("end_datetime", end_datetime);
     formData.append("area", area.value);
@@ -47,7 +57,7 @@ const submitForm = async () => {
     );
 
     alert("ส่งคำขอสำเร็จ");
-    router.push("/my-history"); // <-- Redirect หลังส่งสำเร็จ
+    router.push("/my-history?tab=requests"); 
 
   } catch (err) {
     console.error(err);
@@ -70,17 +80,28 @@ const submitForm = async () => {
       <option value="อื่นๆ">อื่นๆ</option>
     </select>
 
+    <!-- ช่องกรอกหัวข้อกรณีเลือกอื่นๆ -->
+    <div v-if="request_type === 'อื่นๆ'" class="mb-4">
+      <label>ระบุประเภทคำขอ</label>
+      <input
+        type="text"
+        v-model="custom_type"
+        placeholder="กรอกประเภทคำขอของคุณ..."
+        class="w-full border p-2 rounded mt-1"
+      />
+    </div>
+
     <!-- วันที่เริ่ม -->
     <label>วันเวลาเริ่ม</label>
     <div class="flex gap-2 mb-4">
-      <input type="date" v-model="start_date" class="border p-2 rounded w-1/2" />
+      <input type="date" v-model="start_date" :min="minDate" class="border p-2 rounded w-1/2" />
       <input type="time" v-model="start_time" class="border p-2 rounded w-1/2" />
     </div>
 
     <!-- วันสิ้นสุด -->
     <label>วันเวลาสิ้นสุด</label>
     <div class="flex gap-2 mb-4">
-      <input type="date" v-model="end_date" class="border p-2 rounded w-1/2" />
+      <input type="date" v-model="end_date" :min="minDate" class="border p-2 rounded w-1/2" />
       <input type="time" v-model="end_time" class="border p-2 rounded w-1/2" />
     </div>
 

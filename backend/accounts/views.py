@@ -211,6 +211,8 @@ def request_approve(request, pk):
                 phone=req.phone,
                 citizen_id=req.citizen_id,  # ยังเก็บได้ แต่ไม่ใช้ auth
                 house_owner_name=req.house_owner_name,
+                prefix=req.prefix,
+                birth_date=req.birth_date,
                 role="user",
                 verified=True,
                 is_active=True

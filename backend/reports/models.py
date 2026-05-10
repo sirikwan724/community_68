@@ -1,6 +1,5 @@
 from django.db import models
 from django.conf import settings
-from django.conf import settings
 User = settings.AUTH_USER_MODEL
 
 class Report(models.Model):
@@ -53,6 +52,7 @@ class RequestHelp(models.Model):
         ("approved", "อนุมัติ"),
         ("rejected", "ปฏิเสธ"),
         ("done", "ดำเนินการเสร็จสิ้น"),
+        ("canceled", "ยกเลิกโดยผู้ใช้"),
     ]
 
     TYPE_CHOICES = [
@@ -73,7 +73,7 @@ class RequestHelp(models.Model):
     area = models.CharField(max_length=255)
 
     file = models.FileField(upload_to="help_files/", null=True, blank=True)
-
+    reject_reason = models.TextField(blank=True, default="")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -98,6 +98,7 @@ class Appointment(models.Model):
         ("approved", "ยืนยันนัดหมาย"),
         ("canceled", "ยกเลิกโดยผู้ใช้"),
         ("rejected", "ผู้ใหญ่บ้านปฏิเสธ"),
+        ("done", "ดำเนินการเสร็จสิ้น"),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -129,8 +130,3 @@ class Appointment(models.Model):
             f"นัดหมาย {self.get_meet_with_display()} "
             f"วันที่ {self.date} ({self.get_status_display()})"
         )
-
-# ===============================
-# ADMIN STATS
-# ===============================
-

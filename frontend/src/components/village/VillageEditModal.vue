@@ -54,7 +54,7 @@ const resetForm = () => {
   form.title = "";
   form.contentText = "";
   form.description = "";
-  form.places = [{ id: uid(), name: "", detail: "", imageFiles: [], _previews: [] }];
+  form.places = [{ id: uid(), name: "", detail: "", imageFiles: [], _previews: [], _existingImages: [] }];
   existingImages.value = [];
   newImageItems.value = [];
 };
@@ -86,8 +86,19 @@ const loadFromInitial = (sec) => {
     form.description = sec.description || "";
     const items = Array.isArray(sec.places) ? sec.places : [];
     form.places = items.length
-      ? items.map((p) => ({ id: p.id || uid(), name: p.name || "", detail: p.detail || "", imageFiles: [], _previews: [] }))
-      : [{ id: uid(), name: "", detail: "", imageFiles: [], _previews: [] }];
+      ? items.map((p) => ({
+          id: p.id || uid(),
+          name: p.name || "",
+          detail: p.detail || "",
+          imageFiles: [],
+          _previews: [],
+          _existingImages: (p.images || []).map((img) => ({
+            id: img.id,
+            url: img.url || img,
+            caption: img.caption || "",
+          })),
+        }))
+      : [{ id: uid(), name: "", detail: "", imageFiles: [], _previews: [], _existingImages: [] }];
   }
 
   isHydrating.value = false;
@@ -133,7 +144,7 @@ const previewSection = computed(() => {
   return { id: form.id, type: "PLACES", title: form.title || "(ยังไม่ใส่หัวข้อ)", description: form.description || "", places };
 });
 
-const addPlace = () => form.places.push({ id: uid(), name: "", detail: "", imageFiles: [], _previews: [] });
+const addPlace = () => form.places.push({ id: uid(), name: "", detail: "", imageFiles: [], _previews: [], _existingImages: [] });
 const removePlace = (id) => { if (form.places.length > 1) form.places = form.places.filter((p) => p.id !== id); };
 
 const close = () => emit("close");
@@ -143,7 +154,7 @@ const save = () => {
     section: previewSection.value,
     existingImages: existingImages.value.map((img) => ({ id: img.id, caption: img.caption })),
     sectionItems: [...newImageItems.value],
-    places: form.places.map((p) => ({ name: p.name, detail: p.detail, files: p.imageFiles || [] })),
+    places: form.places.map((p) => ({ id: p.id, name: p.name, detail: p.detail, files: p.imageFiles || [] })),
   });
   emit("close");
 };
@@ -291,6 +302,18 @@ const save = () => {
                       <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">รายละเอียดสถานที่</label>
                         <textarea v-model="p.detail" rows="3" class="w-full border rounded-lg px-3 py-2" placeholder="รายละเอียด..."></textarea>
+                      </div>
+                      <!-- รูปที่มีอยู่แล้วใน place นี้ -->
+                      <div v-if="p._existingImages?.length">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                          รูปที่มีอยู่แล้ว ({{ p._existingImages.length }} รูป)
+                        </label>
+                        <div class="grid grid-cols-3 gap-2 mb-2">
+                          <div v-for="img in p._existingImages" :key="img.id" class="flex flex-col gap-1">
+                            <img :src="img.url" class="w-full h-20 object-cover rounded border" alt="" />
+                            <p v-if="img.caption" class="text-xs text-gray-500 text-center">{{ img.caption }}</p>
+                          </div>
+                        </div>
                       </div>
                       <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">รูปสถานที่</label>

@@ -8,7 +8,9 @@ const pendingUsers = ref([]);
 const loading = ref(true);
 const error = ref(null);
 const router = useRouter(); 
-
+const selectedUser = ref(null)
+const showModal = ref(false)
+const rejectReason = ref("")
 // =======================
 // ฟิลเตอร์ ปี / เดือน
 // =======================
@@ -91,6 +93,17 @@ onMounted(() => {
     fetchRequests();
 });
 
+const openModal = (user) => {
+    selectedUser.value = user
+    rejectReason.value = ""
+    showModal.value = true
+}
+
+const closeModal = () => {
+    showModal.value = false
+    selectedUser.value = null
+}
+
 // ฟังก์ชันอนุมัติ
 const approveUser = async (user) => {
     if (!confirm(`ยืนยันการอนุมัติคุณ ${user.full_name}?`)) return;
@@ -104,8 +117,10 @@ const approveUser = async (user) => {
             { headers: { Authorization: `Bearer ${token}` } }
         );
         
-        // ลบออกจากรายการหน้าจอ และดึงข้อมูลใหม่ (หรือแค่ลบออกจาก list ก็ได้)
-        pendingUsers.value = pendingUsers.value.filter(u => u.id !== user.id);
+        const target = pendingUsers.value.find(u => u.id === user.id)
+        if (target) target.status = 'approved'
+        
+        closeModal();
         alert("✅ อนุมัติเรียบร้อย และสร้างบัญชีผู้ใช้แล้ว");
     } catch (err) {
         console.error("Approve Error:", err);
@@ -115,19 +130,25 @@ const approveUser = async (user) => {
 
 // ฟังก์ชันปฏิเสธ
 const rejectUser = async (user) => {
-    const reason = prompt("กรุณาระบุเหตุผลที่ไม่อนุมัติ:");
-    if (!reason) return;
+    let reason = rejectReason.value.trim()
+
+    if (!reason) {
+        reason = prompt("กรุณาระบุเหตุผลที่ไม่อนุมัติ:")
+        if (!reason) return
+    }
 
     const token = localStorage.getItem('access');
     try {
-        // API Call จริง: POST /api/accounts/admin/requests/{id}/reject/
         await axios.post(
             `http://localhost:8000/api/accounts/admin/requests/${user.id}/reject/`,
-            { reason: reason }, // ส่งเหตุผลไป Backend
+            { reason: reason },
             { headers: { Authorization: `Bearer ${token}` } }
         );
 
-        pendingUsers.value = pendingUsers.value.filter(u => u.id !== user.id);
+        const target = pendingUsers.value.find(u => u.id === user.id)
+        if (target) target.status = 'rejected'
+
+        closeModal();
         alert("❌ ปฏิเสธคำร้องเรียบร้อย");
     } catch (err) {
         console.error("Reject Error:", err);
@@ -218,8 +239,10 @@ const rejectUser = async (user) => {
                                 <td class="px-6 py-4 whitespace-nowrap text-gray-500">
                                     {{ user.created_at_formatted }} 
                                     </td>
-                                <td class="px-6 py-4 font-medium text-gray-900">
-                                    {{ user.full_name }} </td>
+                                <td class="px-6 py-4 font-medium text-brand-darkBlue cursor-pointer hover:underline"
+                                    @click="openModal(user)" >
+                                    {{ user.prefix }} {{ user.full_name }}
+                                </td>
                                 <td class="px-6 py-4">
                                     <p class="text-gray-800">{{ user.address }}</p>
                                     <p class="text-xs text-gray-400 mt-1">ID: {{ user.citizen_id }}</p>
@@ -289,6 +312,113 @@ const rejectUser = async (user) => {
                 </div>
 
             </div>
+        </div>
+    </div>
+    <!-- Modal Popup -->
+    <div
+        v-if="showModal && selectedUser"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        @click.self="closeModal"
+    >
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 relative">
+
+            <!-- ปุ่มปิด -->
+            <button
+                @click="closeModal"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-xl font-bold"
+            >
+                ✕
+            </button>
+
+            <!-- หัวข้อ -->
+            <h2 class="text-xl font-bold text-brand-darkBlue mb-4">
+                ข้อมูลคำขอลงทะเบียน
+            </h2>
+
+            <!-- ข้อมูล -->
+            <div class="space-y-3 text-sm text-gray-700">
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">คำนำหน้า:</span>
+                    <span>{{ selectedUser.prefix || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">ชื่อ-นามสกุล:</span>
+                    <span>{{ selectedUser.full_name }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">วันเดือนปีเกิด:</span>
+                    <span>{{ selectedUser.birth_date || '-' }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">เบอร์โทรศัพท์:</span>
+                    <span>{{ selectedUser.phone }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">ที่อยู่:</span>
+                    <span>{{ selectedUser.address }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">รหัสทะเบียนบ้าน:</span>
+                    <span>{{ selectedUser.citizen_id }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">ชื่อเจ้าบ้าน:</span>
+                    <span>{{ selectedUser.house_owner_name }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">ชื่อผู้ใช้งาน:</span>
+                    <span>{{ selectedUser.username }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">วันที่สมัคร:</span>
+                    <span>{{ selectedUser.created_at_formatted }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <span class="font-medium w-36">สถานะ:</span>
+                    <span
+                        :class="{
+                            'text-green-600': selectedUser.status === 'approved',
+                            'text-red-600': selectedUser.status === 'rejected',
+                            'text-yellow-600': selectedUser.status === 'pending',
+                        }"
+                    >
+                        {{
+                            selectedUser.status === 'approved' ? 'อนุมัติแล้ว' :
+                            selectedUser.status === 'rejected' ? 'ปฏิเสธแล้ว' : 'รออนุมัติ'
+                        }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- ช่องเหตุผลปฏิเสธ + ปุ่ม (เฉพาะ pending) -->
+            <template v-if="selectedUser.status === 'pending'">
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        เหตุผลที่ปฏิเสธ (กรอกเมื่อต้องการปฏิเสธ)
+                    </label>
+                    <textarea
+                        v-model="rejectReason"
+                        rows="2"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+                        placeholder="ระบุเหตุผล..."
+                    />
+                </div>
+                <div class="flex gap-3 mt-4">
+                    <button
+                        @click="approveUser(selectedUser)"
+                        class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium text-sm transition"
+                    >
+                        ✓ อนุมัติ
+                    </button>
+                    <button
+                        @click="rejectUser(selectedUser)"
+                        class="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium text-sm transition"
+                    >
+                        ✕ ปฏิเสธ
+                    </button>
+                </div>
+            </template>
+
         </div>
     </div>
 </template>

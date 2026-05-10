@@ -14,7 +14,7 @@ const category = ref("");
 const description = ref("");
 const area = ref("");
 const imageFile = ref(null);
-
+const customCategory = ref(""); 
 
 // หมวดหมู่ปัญหา
 const categories = [
@@ -41,7 +41,10 @@ const submitForm = async () => {
   try {
     const formData = new FormData();
 
-    formData.append("category", category.value);
+    const finalCategory = category.value === "อื่นๆ" && customCategory.value.trim()
+      ? customCategory.value.trim()
+      : category.value;
+    formData.append("category", finalCategory);
     formData.append("description", description.value);
     formData.append("area", area.value);
 
@@ -64,7 +67,7 @@ const submitForm = async () => {
       "ส่งคำร้องเรียบร้อยแล้ว! แอดมินจะตรวจสอบโดยเร็วที่สุด";
 
     setTimeout(() => {
-      router.push("/");
+      router.push("/my-history");
     }, 1500);
   } catch (error) {
     console.error(error);
@@ -119,6 +122,16 @@ const submitForm = async () => {
             {{ c }}
           </option>
         </select>
+        <!-- กล่องพิมพ์หัวข้อเอง เมื่อเลือก อื่นๆ -->
+        <div v-if="category === 'อื่นๆ'" class="mt-2">
+          <input
+            v-model="customCategory"
+            type="text"
+            placeholder="ระบุหัวข้อปัญหา..."
+            required
+            class="w-full p-2 border rounded-md"
+          />
+        </div>
       </div>
 
       <!-- รายละเอียด -->

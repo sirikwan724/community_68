@@ -14,12 +14,14 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
         model = RegistrationRequest
         fields = [
             "id",
-            "username",         
+            "username",
+            "prefix",
             "full_name",
             "phone",
             "address",
             "citizen_id",        
             "house_owner_name",
+            "birth_date",
             "password",
             "status",
             "created_at",
@@ -36,6 +38,15 @@ class RegistrationRequestSerializer(serializers.ModelSerializer):
 
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("ชื่อผู้ใช้งานนี้ถูกใช้แล้ว")
+        
+        return value
+    
+    def validate_birth_date(self, value):
+        from datetime import date
+        today = date.today()
+        age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
+        if age < 18:
+            raise serializers.ValidationError("ผู้สมัครต้องมีอายุ 18 ปีขึ้นไป")
 
         return value
 

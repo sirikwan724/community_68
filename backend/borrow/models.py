@@ -36,6 +36,7 @@ class BorrowRequest(models.Model):
         ('return_requested', 'Return Requested'),
         ('returned', 'Returned'),
         ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
     )
 
     user = models.ForeignKey(

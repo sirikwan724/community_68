@@ -30,14 +30,30 @@ class ReportSerializer(serializers.ModelSerializer):
             "full_name": user.full_name,
             "phone": user.phone,
             "address": user.address,
+            "citizen_id": user.citizen_id,
+            "house_owner_name": user.house_owner_name,
             "avatar": user.avatar.url if getattr(user, "avatar", None) else None,
         }
 
 class RequestHelpSerializer(serializers.ModelSerializer):
+    user_data = serializers.SerializerMethodField()
+    request_type = serializers.CharField(max_length=100, allow_blank=True,required=False)
+
     class Meta:
         model = RequestHelp
         fields = "__all__"
         read_only_fields = ["user", "created_at"]
+
+    def get_user_data(self, obj):
+        user = getattr(obj, "user", None)
+        if not user:
+            return None
+        return {
+            "id": user.id,
+            "full_name": user.full_name,
+            "phone": user.phone,
+            "address": user.address,
+        }
 
 class AppointmentSerializer(serializers.ModelSerializer):
     user_data = serializers.SerializerMethodField()

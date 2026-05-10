@@ -1,13 +1,19 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
-import axios from "axios";
-import { useRouter } from "vue-router";
+// import { ref, onMounted, computed } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import api from "@/services/api";
 
 const activeTab = ref("reports");
 const router = useRouter();
-
+const route = useRoute();
 const reports = ref([]);
 const requests = ref([]);
+
+const expandedRequestId = ref(null);
+const toggleRequestDetail = (id) => {
+  expandedRequestId.value = expandedRequestId.value === id ? null : id;
+}
+
 const merged = ref([]);
 const appointments = ref([]);
 const borrows = ref([]);
@@ -65,14 +71,22 @@ const placeLabel = {
   learning_center: "ศูนย์เรียนรู้หมู่บ้าน"
 };
 
+const apptStatusLabel = {
+  pending: "รอดำเนินการ",
+  approved: "อนุมัติแล้ว",
+  rejected: "ปฏิเสธนัดหมาย",
+  canceled: "ยกเลิกโดยผู้ใช้",
+  done: "ดำเนินการเสร็จสิ้น",
+};
+
 const targetLabel = {
   headman: "ผู้ใหญ่บ้าน",
   assistant_headman: "ผู้ช่วยผู้ใหญ่บ้าน"
 };
 
 // ดึง Token แบบไม่ Error
-const getToken = () => localStorage.getItem("access");
-const token = getToken();
+// const getToken = () => localStorage.getItem("access");
+// const token = getToken();
 
 // ---------------------------
 // Format วันที่
@@ -89,15 +103,19 @@ const formatDT = (dt) => {
   });
 };
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return "-";
+  const [year, month, day] = dateStr.split("-");
+  const d = new Date(Number(year), Number(month) - 1, Number(day));
+  return d.toLocaleDateString("th-TH", { dateStyle: "long" });
+};
 
 // ---------------------------
 // โหลดรายงานปัญหา (Report)
 // ---------------------------
 const loadReports = async () => {
   try {
-    const res = await axios.get("http://localhost:8000/api/reports/my/", {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
+    const res = await api.get("/reports/my/");
 
     reports.value = res.data.map((i) => ({
       id: i.id,
@@ -106,6 +124,8 @@ const loadReports = async () => {
       detail: i.description,
       status: i.status,
       created_at: i.created_at,
+      notes: i.notes || [],  
+      showNotes: false,
     }));
   } catch (err) {
     console.error("โหลดรายงานผิดพลาด", err);
@@ -117,19 +137,24 @@ const loadReports = async () => {
 // ---------------------------
 const loadServiceReports = async () => {
   try {
-    const res = await axios.get("http://localhost:8000/api/services/reports/my/", {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
+    const res = await api.get("/services/reports/my/");
+
+    const categoryLabel = {
+      water: "ตู้กดน้ำ",
+      washer: "เครื่องซักผ้า",
+      other: "บริการอื่นๆ",
+    };
 
     serviceReports.value = res.data.map((i) => ({
       id: i.id,
       type: "service_report",
-      title: `ปัญหาตู้บริการ: ${i.service_name || "-"}`,
+      title: `บริการสาธารณะ • ${categoryLabel[i.service_category] || "บริการ"} ${i.service_name || ""}`.trim(),
       detail: `${i.title} - ${i.description}`,
       status: i.status,
       created_at: i.created_at,
       service_id: i.service_id,
     }));
+
   } catch (err) {
     console.error("โหลดรายงานตู้บริการผิดพลาด", err);
   }
@@ -151,13 +176,9 @@ const cancelServiceReport = async (id) => {
   if (!confirm("ต้องการยกเลิกคำร้องนี้หรือไม่?")) return;
 
   try {
-    await axios.patch(
-      `http://localhost:8000/api/services/reports/my/${id}/cancel/`,
-      {},
-      { headers: { Authorization: `Bearer ${getToken()}` } }
-    );
+    await api.patch(`/services/reports/my/${id}/cancel/`, {});
     alert("ยกเลิกคำร้องสำเร็จ");
-    await refreshReportsTab(); // เปลี่ยนจาก loadServiceReports() เป็น refreshReportsTab()
+    await refreshReportsTab(); 
   } catch (err) {
     alert("ไม่สามารถยกเลิกได้");
   }
@@ -168,9 +189,7 @@ const cancelServiceReport = async (id) => {
 // ---------------------------
 const loadRequests = async () => {
   try {
-    const res = await axios.get("http://localhost:8000/api/reports/help/my/", {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
+    const res = await api.get("/reports/help/my/");
 
     requests.value = res.data.map((i) => ({
       id: i.id,
@@ -179,6 +198,11 @@ const loadRequests = async () => {
       detail: i.detail,
       status: i.status,
       created_at: i.created_at,
+      start_datetime: i.start_datetime,
+      end_datetime: i.end_datetime,
+      area: i.area,
+      file: i.file,
+      reject_reason: i.reject_reason,
     }));
   } catch (err) {
     console.error("โหลดคำขอความอนุเคราะห์ผิดพลาด", err);
@@ -190,10 +214,7 @@ const loadRequests = async () => {
 // ---------------------------
 const loadAppointments = async () => {
   try {
-    const res = await axios.get(
-      "http://localhost:8000/api/appointments/my/",
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    const res = await api.get("/appointments/my/");
     appointments.value = res.data;
   } catch (err) {
     console.error("LOAD APPOINTMENTS ERROR:", err);
@@ -205,12 +226,8 @@ const loadAppointments = async () => {
 // ---------------------------
 const loadBorrows = async () => {
   try {
-    const res = await axios.get(
-      "http://localhost:8000/api/borrow/my/",
-      { headers: { Authorization: `Bearer ${getToken()}` } }
-    );
-
-    borrows.value = res.data; 
+    const res = await api.get("/borrow/my/");
+    borrows.value = res.data;
   } catch (err) {
     console.error("โหลดประวัติการยืมผิดพลาด", err);
   }
@@ -221,14 +238,8 @@ const loadBorrows = async () => {
 // ---------------------------
 const requestReturn = async (id) => {
   if (!confirm("ยืนยันการแจ้งคืนหรือไม่?")) return;
-
   try {
-    await axios.post(
-      `http://localhost:8000/api/borrow/${id}/request-return/`,
-      {},
-      { headers: { Authorization: `Bearer ${getToken()}` } }
-    );
-
+    await api.post(`/borrow/${id}/request-return/`, {});
     alert("แจ้งคืนเรียบร้อย รอแอดมินตรวจสอบ");
     loadBorrows();
   } catch (err) {
@@ -238,14 +249,8 @@ const requestReturn = async (id) => {
 
 const cancelBorrow = async (id) => {
   if (!confirm("ต้องการยกเลิกคำขอนี้หรือไม่?")) return;
-
   try {
-    await axios.patch(
-      `http://localhost:8000/api/borrow/my/${id}/cancel/`,
-      {},
-      { headers: { Authorization: `Bearer ${getToken()}` } }
-    );
-
+    await api.patch(`/borrow/my/${id}/cancel/`, {});
     alert("ยกเลิกคำขอเรียบร้อย");
     loadBorrows();
   } catch (err) {
@@ -295,12 +300,7 @@ const cancelReport = async (id) => {
   if (!confirm("ต้องการยกเลิกคำร้องนี้หรือไม่?")) return;
 
   try {
-    await axios.patch(`http://localhost:8000/api/reports/${id}/cancel/`,       
-      {},
-      {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
-
+    await api.patch(`/reports/${id}/cancel/`, {});
     alert("ยกเลิกคำร้องสำเร็จ");
     loadReports();
   } catch (err) {
@@ -316,12 +316,7 @@ const cancelRequest = async (id) => {
   if (!confirm("ต้องการยกเลิกคำขอนี้หรือไม่?")) return;
 
   try {
-    await axios.patch(
-      `http://localhost:8000/api/reports/help/my/${id}/cancel/`,
-      {},
-      { headers: { Authorization: `Bearer ${getToken()}` } }
-    );
-
+    await api.patch(`/reports/help/my/${id}/cancel/`, {});
     alert("ยกเลิกคำขอเรียบร้อยแล้ว!");
     loadRequests();
   } catch (err) {
@@ -337,12 +332,7 @@ const cancelAppointment = async (id) => {
   if (!confirm("ต้องการยกเลิกนัดหมายนี้หรือไม่?")) return;
 
   try {
-    await axios.patch(
-      `http://localhost:8000/api/appointments/my/${id}/cancel/`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
+    await api.patch(`/appointments/my/${id}/cancel/`, {});
     alert("ยกเลิกสำเร็จ");
     loadAppointments();
   } catch (err) {
@@ -355,6 +345,9 @@ const cancelAppointment = async (id) => {
 // โหลดข้อมูลเมื่อเปิดหน้า
 // ---------------------------
 onMounted(async () => {
+  if (route.query.tab) {          
+    activeTab.value = route.query.tab;
+  }
   await loadReports(); // โหลดรายงานปัญหาทั่วไป
   await refreshReportsTab(); // โหลดรายงานปัญหาบริการสาธารณะของผู้ใช้
   await loadRequests(); // โหลดคำขอความอนุเคราะห์
@@ -464,6 +457,27 @@ onMounted(async () => {
         <p class="text-sm text-gray-400 mt-1">
           ส่งเมื่อ: {{ formatDT(item.created_at) }}
         </p>
+        <div v-if="item.notes && item.notes.length > 0" class="mt-3">
+          <button
+            @click="item.showNotes = !item.showNotes"
+            class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+          >
+            {{ item.showNotes ? 'ซ่อนอัปเดต' : `ดูอัปเดตจากแอดมิน (${item.notes.length})` }}
+          </button>
+
+          <div v-if="item.showNotes" class="mt-3 space-y-2">
+            <div
+              v-for="note in item.notes"
+              :key="note.id"
+              class="p-3 bg-blue-50 border border-blue-200 rounded text-sm"
+            >
+              <p class="text-gray-800">{{ note.text }}</p>
+              <p class="text-xs text-gray-400 mt-1">
+                {{ new Date(note.created_at).toLocaleString('th-TH') }}
+              </p>
+            </div>
+          </div>
+        </div>
 
         <!-- ปุ่มแก้ไข & ยกเลิก -->
         <div v-if="item.status === 'pending'" class="mt-4 flex gap-3">
@@ -530,10 +544,31 @@ onMounted(async () => {
         </div>
 
         <p class="text-gray-600 mt-2">{{ item.detail }}</p>
+        <p class="text-sm text-gray-400 mt-1">ส่งเมื่อ: {{ formatDT(item.created_at) }}</p>
 
-        <p class="text-sm text-gray-400 mt-1">
-          ส่งเมื่อ: {{ formatDT(item.created_at) }}
-        </p>
+        <!-- ปุ่มดูรายละเอียด -->
+        <button
+          @click="toggleRequestDetail(item.id)"
+          class="mt-3 text-sm text-blue-600 hover:underline"
+        >
+          {{ expandedRequestId === item.id ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด' }}
+        </button>
+
+        <!-- รายละเอียดแบบขยาย -->
+        <div v-if="expandedRequestId === item.id" class="mt-3 bg-gray-50 border rounded p-3 space-y-1 text-sm">
+          <p><strong>วันเวลาเริ่ม:</strong> {{ formatDT(item.start_datetime) }}</p>
+          <p><strong>วันเวลาสิ้นสุด:</strong> {{ formatDT(item.end_datetime) }}</p>
+          <p><strong>สถานที่:</strong> {{ item.area }}</p>
+          <div v-if="item.file" class="mt-2">
+            <p class="font-semibold mb-1">ไฟล์ประกอบ:</p>
+            <img :src="`http://localhost:8000${item.file}`" class="max-h-48 rounded border object-cover" />
+          </div>
+          <div v-if="item.status === 'rejected' && item.reject_reason"
+            class="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+            <p class="text-red-700 font-semibold">เหตุผลการปฏิเสธ:</p>
+            <p class="text-red-600">{{ item.reject_reason }}</p>
+          </div>
+        </div>
 
         <!-- ปุ่มแก้ไข & ยกเลิก -->
         <div v-if="item.status === 'pending'" class="mt-4 flex gap-3">
@@ -568,29 +603,40 @@ onMounted(async () => {
         :key="ap.id"
         class="border rounded-md p-4 mb-4"
       >
-      
-      <p class="font-bold text-lg">
-          ต้องการพบ: {{ targetLabel[ap.meet_with] }}
-      </p>
+        <div class="flex justify-between">
+          <h3 class="font-bold text-lg">ต้องการพบ: {{ targetLabel[ap.meet_with] }}</h3>
 
-      <h3 class="text-gray-600 mt-2"> สถานที่: {{ placeLabel[ap.meeting_place] }}</h3>
+          <span
+            class="px-3 py-1 rounded-full text-xs font-bold"
+            :class="statusClass[ap.status]"
+          >
+            {{ apptStatusLabel[ap.status] }}
+          </span>
+        </div>
 
-        <p class="text-gray-600 mt-2">
-          วันที่: {{ ap.date }} เวลา {{ ap.start_time }} - {{ ap.end_time }}
+        <p class="text-gray-600 mt-2">สถานที่: {{ placeLabel[ap.meeting_place] }}</p>
+
+        <p class="text-gray-600 mt-1">
+          วันที่: {{ formatDate(ap.date) }} เวลา {{ ap.start_time?.slice(0,5) }} - {{ ap.end_time?.slice(0,5) }}
         </p>
 
-        <p class="text-gray-600 mt-2">เหตุผล: {{ ap.reason }}</p>
+        <p class="text-gray-600 mt-1">เหตุผล: {{ ap.reason }}</p>
 
-        <!-- Status -->
-        <span
-          class="px-3 py-1 rounded-full text-xs font-bold"
-          :class="statusClass[ap.status]"
+        <p class="text-sm text-gray-400 mt-1">
+          ส่งเมื่อ: {{ formatDT(ap.created_at) }}
+        </p>
+
+        <div
+          v-if="ap.status === 'rejected' && ap.admin_note"
+          class="mt-2 p-3 bg-red-50 border border-red-200 rounded text-sm"
         >
-          {{ statusLabel[ap.status] }}
-        </span>
+          <p class="text-red-700">
+            <strong>เหตุผลที่ถูกปฏิเสธ:</strong> {{ ap.admin_note }}
+          </p>
+        </div>
 
         <!-- ปุ่มเฉพาะ pending -->
-        <div v-if="['pending', 'rejected'].includes(ap.status)" class="mt-3 flex gap-3">
+        <div v-if="ap.status === 'pending'" class="mt-4 flex gap-3">
           <button
             @click="$router.push(`/appointments/edit/${ap.id}`)"
             class="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
@@ -599,8 +645,8 @@ onMounted(async () => {
           </button>
 
           <button
-            class="px-4 py-2 bg-red-600 text-white rounded"
             @click="cancelAppointment(ap.id)"
+            class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
           >
             ยกเลิก
           </button>
@@ -682,6 +728,16 @@ onMounted(async () => {
         <p class="text-sm text-gray-400 mt-1">
           ส่งเมื่อ: {{ formatDT(item.created_at) }}
         </p>
+
+        <!-- แสดงเหตุผลปฏิเสธ -->
+        <div
+          v-if="item.status === 'rejected' && item.admin_note"
+          class="mt-2 p-3 bg-red-50 border border-red-200 rounded text-sm"
+        >
+          <p class="text-red-700">
+            <strong>เหตุผลที่ถูกปฏิเสธ:</strong> {{ item.admin_note }}
+          </p>
+        </div>
 
         <div v-if="item.status === 'pending'" class="mt-4 flex gap-3">
           <button

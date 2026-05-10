@@ -4,6 +4,7 @@ const api = axios.create({
   baseURL: "http://localhost:8000/api",
 });
 
+// แนบ access token ทุก request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access");
   if (token) {
@@ -11,5 +12,46 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// จัดการ 401 — ลอง refresh token ก่อน ถ้าไม่ได้ค่อย logout
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      const refresh = localStorage.getItem("refresh");
+      if (!refresh) {
+        // ไม่มี refresh token → logout
+        localStorage.clear();
+        window.location.href = "/login";
+        return Promise.reject(error);
+      }
+
+      try {
+        const res = await axios.post(
+          "http://localhost:8000/api/accounts/refresh/",
+          { refresh }
+        );
+
+        const newAccess = res.data.access;
+        localStorage.setItem("access", newAccess);
+
+        // retry request เดิมด้วย token ใหม่
+        originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+        return api(originalRequest);
+      } catch {
+        // refresh หมดอายุหรือใช้ไม่ได้ → logout
+        localStorage.clear();
+        window.location.href = "/login";
+        return Promise.reject(error);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default api;

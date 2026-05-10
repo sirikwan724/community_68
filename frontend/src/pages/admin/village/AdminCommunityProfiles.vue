@@ -5,7 +5,7 @@
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
       <div>
         <h1 class="text-2xl font-bold text-gray-800">
-          โครงสร้างผู้นำหมู่บ้าน
+          โครงสร้างคณะผู้นำหมู่บ้าน
         </h1>
         <p class="text-gray-500 text-sm">
           เพิ่ม แก้ไข หรือลบโปรไฟล์ผู้นำ กรรมการ และ อสม.
@@ -44,7 +44,7 @@
       <!-- ================== ผู้นำ ================== -->
       <div v-if="leaders.length">
         <h2 class="text-xl font-bold mt-6 mb-4 text-center">
-          ผู้นำชุมชน
+          คณะผู้นำชุมชนหมู่บ้าน
         </h2>
 
         <div class="grid md:grid-cols-3 gap-6">
@@ -60,7 +60,7 @@
       <!-- ================== คณะกรรมการ ================== -->
       <div v-if="committees.length">
         <h2 class="text-xl font-bold mt-10 mb-4 text-center">
-          คณะกรรมการ
+          คณะกรรมการหมู่บ้าน
         </h2>
 
         <div class="grid md:grid-cols-3 gap-6">
@@ -76,7 +76,7 @@
       <!-- ================== อสม ================== -->
       <div v-if="volunteers.length">
         <h2 class="text-xl font-bold mt-10 mb-4 text-center">
-          อสม.
+          อสม.(อาสาสาธารณสุขประจำหมู่บ้าน)
         </h2>
 
         <div class="grid md:grid-cols-3 gap-6">

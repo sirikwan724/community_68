@@ -12,6 +12,7 @@ const getToken = () => localStorage.getItem("access");
 const currentReport = ref(null);
 const noteText = ref("");
 const newStatus = ref("");
+const showUserCard = ref(false);
 
 const loadReportDetail = async () => {
   const res = await axios.get(
@@ -21,6 +22,12 @@ const loadReportDetail = async () => {
     }
   );
   currentReport.value = res.data;
+
+  const s = res.data.status;
+  if (s === "pending") newStatus.value = "accepted";
+  else if (s === "processing") newStatus.value = "processing";
+  else if (s === "resolved") newStatus.value = "rollback";
+  else newStatus.value = "";
 };
 
 // เมื่อ modal เปิด / report เปลี่ยน → โหลดใหม่
@@ -75,7 +82,7 @@ const updateStatus = async () => {
   // สถานะเสร็จสิ้น
   else if (newStatus.value === "resolved") {
     url = `http://localhost:8000/api/reports/${props.report.id}/done/`;
-    body = {};
+    body = { message: noteText.value }; // ส่งโน้ตไปบันทึกพร้อมกับเปลี่ยนสถานะเสร็จสิ้นด้วย
   }
 
   // ย้อนกลับสถานะ
@@ -136,7 +143,26 @@ const formatDateTimeTH = (datetime) => {
       <!-- รายละเอียด -->
       <div v-if="currentReport" class="space-y-2">
         <p><strong>หัวข้อ:</strong> {{ currentReport.category }}</p>
-        <p><strong>ผู้แจ้ง:</strong> {{ currentReport.user_data.full_name }}</p>
+        <p>
+          <strong>ผู้แจ้ง:</strong>
+          <span
+            @click="showUserCard = !showUserCard"
+            class="text-blue-600 underline cursor-pointer ml-1"
+          >
+            {{ currentReport.user_data.full_name }}
+          </span>
+        </p>
+        <div
+          v-if="showUserCard"
+          class="mt-2 p-4 bg-blue-50 border border-blue-200 rounded"
+        >
+          <p class="font-semibold text-blue-800 mb-2">ข้อมูลผู้แจ้ง</p>
+          <p><strong>ชื่อ-นามสกุล:</strong> {{ currentReport.user_data.full_name }}</p>
+          <p><strong>เบอร์โทร:</strong> {{ currentReport.user_data.phone }}</p>
+          <p><strong>ที่อยู่:</strong> {{ currentReport.user_data.address }}</p>
+          <p><strong>เลขทะเบียนบ้าน:</strong> {{ currentReport.user_data.citizen_id }}</p>
+          <p><strong>ชื่อเจ้าบ้าน:</strong> {{ currentReport.user_data.house_owner_name }}</p>
+        </div>
         <p><strong>เบอร์โทร:</strong> {{ currentReport.user_data.phone }}</p>
         <p><strong>พื้นที่:</strong> {{ currentReport.area }}</p>
         <p><strong>รายละเอียด:</strong> {{ currentReport.description }}</p>
@@ -158,6 +184,7 @@ const formatDateTimeTH = (datetime) => {
           v-model="newStatus"
           class="w-full p-2 border rounded mt-2"
         >
+          <option value="" disabled>-- เลือกการดำเนินการ --</option>
           <option
             value="accepted"
             v-if="currentReport.status === 'pending'"

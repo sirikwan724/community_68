@@ -115,6 +115,25 @@ class VillagePlaceImage(models.Model):
     class Meta:
         ordering = ["order", "id"]
 
+POSITION_CONFIG = {
+    "leader": [
+        {"name": "ผู้ใหญ่บ้าน",          "max": 1,    "level": 1},
+        {"name": "ผู้ช่วยผู้ใหญ่บ้าน",   "max": 3,    "level": 2},
+        {"name": "อาสาเกษตรหมู่บ้าน",    "max": 1,    "level": 2},
+        {"name": "อบต.",                   "max": 1,    "level": 2},
+        {"name": "อปพร.",                  "max": None, "level": 3},
+    ],
+    "volunteer": [
+        {"name": "ประธานอาสาสาธารณสุขประจำหมู่บ้าน",      "max": 1,    "level": 1},
+        {"name": "รองประธานอาสาสาธารณสุขประจำหมู่บ้าน",   "max": 2,    "level": 2},
+        {"name": "อาสาสาธารณสุขประจำหมู่บ้าน",             "max": None, "level": 3},
+    ],
+    "committee": [
+        {"name": "ประธานคณะกรรมการหมู่บ้าน",  "max": 1,    "level": 1},
+        {"name": "รองประธานคณะกรรมการ",        "max": 2,    "level": 2},
+        {"name": "กรรมการหมู่บ้าน",            "max": None, "level": 3},
+    ],
+}
 
 # ---------------------------
 # Community Profiles
@@ -128,6 +147,7 @@ class CommunityProfile(models.Model):
 
     village     = models.ForeignKey(Village, on_delete=models.CASCADE, related_name="profiles")
     group       = models.CharField(max_length=20, choices=GROUP_CHOICES)
+    prefix      = models.CharField(max_length=50, blank=True, default="")
     position    = models.CharField(max_length=100)
     level       = models.PositiveIntegerField(default=3)
     full_name   = models.CharField(max_length=255, blank=True)
@@ -138,19 +158,21 @@ class CommunityProfile(models.Model):
     is_active   = models.BooleanField(default=True)
 
     def clean(self):
-        if self.level == 1:
-            count = CommunityProfile.objects.filter(
-                village=self.village, group=self.group, level=1
-            ).exclude(id=self.id).count()
-            if count >= 1:
-                raise ValidationError("ในแต่ละกลุ่มมีตำแหน่งหลักได้เพียง 1 คน")
-
-        if self.level == 2:
-            count = CommunityProfile.objects.filter(
-                village=self.village, group=self.group, level=2
-            ).exclude(id=self.id).count()
-            if count >= 3:
-                raise ValidationError("ในแต่ละกลุ่มมีรองได้ไม่เกิน 3 คน")
+        group_positions = POSITION_CONFIG.get(self.group, [])
+        for pos_config in group_positions:
+            if self.position == pos_config["name"]:
+                self.level = pos_config["level"]
+                if pos_config["max"] is not None:
+                    count = CommunityProfile.objects.filter(
+                        village=self.village,
+                        group=self.group,
+                        position=self.position,
+                    ).exclude(id=self.id).count()
+                    if count >= pos_config["max"]:
+                        raise ValidationError(
+                            f"ตำแหน่ง {self.position} มีได้ไม่เกิน {pos_config['max']} คน"
+                        )
+                break
 
     def save(self, *args, **kwargs):
         self.full_clean()

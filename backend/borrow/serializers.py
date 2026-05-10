@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from .models import Item, BorrowItem, BorrowRequest, Location
-
+from django.utils import timezone
 
 # =========================
 # MASTER DATA
@@ -34,7 +34,7 @@ class LocationSerializer(serializers.ModelSerializer):
         conflict = BorrowRequest.objects.filter(
             borrow_type="LOCATION",
             location=obj,
-            status__in=["pending", "approved", "borrowed"],
+            status__in=["approved", "borrowed"],
             start_datetime__lt=end,
             end_datetime__gt=start,
         ).exists()
@@ -79,6 +79,16 @@ class BorrowRequestSerializer(serializers.ModelSerializer):
         end = attrs.get("end_datetime")
         location = attrs.get("location")
 
+        if start and start < timezone.now():
+            raise serializers.ValidationError(
+                {"start_datetime": "ไม่สามารถเลือกวันเวลาที่ผ่านมาแล้วได้"}
+            )
+
+        if start and end and end <= start:
+            raise serializers.ValidationError(
+                {"end_datetime": "วันเวลาสิ้นสุดต้องมาหลังวันเวลาเริ่มต้น"}
+            )
+
         # ---- เช็กจองสถานที่ซ้อน ----
         if borrow_type == "LOCATION":
             conflict = BorrowRequest.objects.filter(
@@ -110,43 +120,18 @@ class BorrowRequestSerializer(serializers.ModelSerializer):
 
             if borrow.borrow_type == "ITEM":
                 for item_data in items_data:
+                    if item_data["quantity"] > item_data["item"].stock:
+                        raise serializers.ValidationError(
+                            f"{item_data['item'].name} มีจำนวนไม่เพียงพอ"
+                        )
+                    # เช็กสต๊อก
+                for item_data in items_data:
                     BorrowItem.objects.create(
                         borrow_request=borrow,
                         item=item_data["item"],
                         quantity=item_data["quantity"],
                     )
-
-                    # เช็กสต๊อก
-                    if item_data["quantity"] > item_data["item"].stock:
-                        raise serializers.ValidationError(
-                            f"{item_data['item'].name} มีจำนวนไม่เพียงพอ"
-                        )
-
-            # เช็กสต๊อก
-            # if borrow.borrow_type == "ITEM":
-            #     for bi in borrow.items.select_related("item").all():
-            #         if bi.quantity > bi.item.stock:
-            #             raise serializers.ValidationError(
-            #                 f"{bi.item.name} มีจำนวนไม่เพียงพอ"
-            #             )
-
             return borrow
-
-    def perform_create(self, serializer):
-        with transaction.atomic():
-            borrow = serializer.save(user=self.request.user)
-
-        if borrow.borrow_type == "LOCATION":
-            conflict = BorrowRequest.objects.filter(
-                borrow_type="LOCATION",
-                location=borrow.location,
-                status__in=["approved", "borrowed"],
-                start_datetime__lt=borrow.end_datetime,
-                end_datetime__gt=borrow.start_datetime,
-            ).exclude(pk=borrow.pk).exists()
-
-            if conflict:
-                raise serializers.ValidationError("เวลานี้ถูกจองแล้ว")
 
 class BorrowItemReadSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source="item.name")

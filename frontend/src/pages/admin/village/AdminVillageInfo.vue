@@ -135,27 +135,64 @@ const handleSave = async ({ section, existingImages, sectionItems, places }) => 
       }
     }
 
-    // PLACES: ลบเก่า + สร้างใหม่
+    // PLACES: PATCH place ที่มีอยู่ + POST place ใหม่ + ลบ place ที่ถูกเอาออก
     if (section.type === "PLACES") {
       if (modalMode.value === "edit") {
         const oldPlaces = editingSection.value?.places || [];
+        const formPlaceIds = new Set(
+          places.filter((p) => typeof p.id === "number").map((p) => p.id)
+        );
+
+        // ลบ place ที่ถูกเอาออกจาก form
         for (const old of oldPlaces) {
-          await api.delete(`/admin/village/places/${old.id}/`);
+          if (!formPlaceIds.has(old.id)) {
+            await api.delete(`/admin/village/places/${old.id}/`);
+          }
         }
-      }
-      for (const p of (places || [])) {
-        const placeRes = await api.post(`/admin/village/sections/${sectionId}/places/`, {
-          name: p.name,
-          detail: p.detail,
-          order: 0,
-        });
-        const placeId = placeRes.data.id;
-        if (p.files?.length) {
-          const fd = new FormData();
-          p.files.forEach((f) => fd.append("images", f));
-          await api.post(`/admin/village/places/${placeId}/images/`, fd, {
-            headers: { "Content-Type": "multipart/form-data" },
+
+        for (const p of (places || [])) {
+          let placeId;
+          if (typeof p.id === "number") {
+            // place เดิม: PATCH (รูปเก่าไม่หาย)
+            await api.patch(`/admin/village/places/${p.id}/`, {
+              name: p.name,
+              detail: p.detail,
+            });
+            placeId = p.id;
+          } else {
+            // place ใหม่: POST
+            const placeRes = await api.post(`/admin/village/sections/${sectionId}/places/`, {
+              name: p.name,
+              detail: p.detail,
+              order: 0,
+            });
+            placeId = placeRes.data.id;
+          }
+
+          // เพิ่มรูปใหม่ (ถ้ามี) โดยไม่ลบรูปเก่า
+          if (p.files?.length) {
+            const fd = new FormData();
+            p.files.forEach((f) => fd.append("images", f));
+            await api.post(`/admin/village/places/${placeId}/images/`, fd, {
+              headers: { "Content-Type": "multipart/form-data" },
+            });
+          }
+        }
+      } else {
+        // create mode: สร้างใหม่ทั้งหมด
+        for (const p of (places || [])) {
+          const placeRes = await api.post(`/admin/village/sections/${sectionId}/places/`, {
+            name: p.name,
+            detail: p.detail,
+            order: 0,
           });
+          if (p.files?.length) {
+            const fd = new FormData();
+            p.files.forEach((f) => fd.append("images", f));
+            await api.post(`/admin/village/places/${placeRes.data.id}/images/`, fd, {
+              headers: { "Content-Type": "multipart/form-data" },
+            });
+          }
         }
       }
     }

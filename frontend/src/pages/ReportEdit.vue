@@ -12,8 +12,10 @@ const category = ref("");
 const description = ref("");
 const area = ref("");
 const image = ref(null);
+const existingImage = ref("");
+const previewUrl = ref("");
 const status = ref("");
-
+const customCategory = ref(""); 
 const loading = ref(true);
 const error = ref("");
 
@@ -31,10 +33,17 @@ onMounted(async () => {
             return;
         }
 
-        category.value = res.data.category;
+        const standardCategories = ["ไฟฟ้า", "น้ำ", "ถนน", "บุคคล", "เสียง", "กลิ่น"];
+        if (standardCategories.includes(res.data.category)) {
+            category.value = res.data.category;
+        } else {
+            category.value = "อื่นๆ";
+            customCategory.value = res.data.category; 
+        }
         description.value = res.data.description;
         area.value = res.data.area;
         status.value = res.data.status;
+        existingImage.value = res.data.image || "";
 
     } catch (err) {
         console.error(err);
@@ -44,11 +53,21 @@ onMounted(async () => {
     }
 });
 
+const handleFileChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  image.value = file;
+  previewUrl.value = URL.createObjectURL(file);
+};
+
 const submitEdit = async () => {
     const token = localStorage.getItem("access");
 
     const formData = new FormData();
-    formData.append("category", category.value);
+    const finalCategory = category.value === "อื่นๆ" && customCategory.value.trim()
+        ? customCategory.value.trim()
+        : category.value;
+    formData.append("category", finalCategory);
     formData.append("description", description.value);
     formData.append("area", area.value);
     if (image.value) formData.append("image", image.value);
@@ -84,7 +103,16 @@ const submitEdit = async () => {
                     <option value="บุคคล">บุคคล</option>
                     <option value="เสียง">เสียง</option>
                     <option value="กลิ่น">กลิ่น</option>
+                    <option value="อื่นๆ">อื่นๆ</option>
                 </select>
+                <div v-if="category === 'อื่นๆ'" class="mt-2">
+                    <input
+                        v-model="customCategory"
+                        type="text"
+                        placeholder="ระบุหัวข้อปัญหา..."
+                        class="w-full border p-2 rounded"
+                    />
+                </div>
             </div>
 
             <div>
@@ -98,13 +126,29 @@ const submitEdit = async () => {
             </div>
 
             <div>
+                <label class="font-bold">รูปภาพปัจจุบัน</label>
+                <div v-if="existingImage || previewUrl" class="mt-2 mb-3">
+                    <img
+                    :src="previewUrl || `http://localhost:8000${existingImage}`"
+                    class="w-full max-h-48 object-cover rounded border"
+                    />
+                </div>
                 <label class="font-bold">อัปโหลดภาพใหม่ (ถ้ามี)</label>
-                <input type="file" @change="e => image.value = e.target.files[0]" />
+                <input type="file" @change="handleFileChange" />
             </div>
 
-            <button class="px-4 py-2 bg-blue-600 text-white rounded">
-                บันทึกการแก้ไข
-            </button>
+            <div class="flex gap-3">
+                <button class="px-4 py-2 bg-blue-600 text-white rounded">
+                    บันทึกการแก้ไข
+                </button>
+                <button
+                    type="button"
+                    @click="router.back()"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                    ยกเลิก / กลับ
+                </button>
+            </div>
         </form>
 
     </div>

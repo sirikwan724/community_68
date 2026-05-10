@@ -10,7 +10,7 @@
     <div v-else class="w-24 h-24 mx-auto rounded-full bg-gray-200 mb-4" />
 
     <h3 class="text-center font-bold text-lg">
-      {{ profile.full_name }}
+      {{ profile.prefix }} {{ profile.full_name }}
     </h3>
 
     <p class="text-center text-sm text-gray-600">

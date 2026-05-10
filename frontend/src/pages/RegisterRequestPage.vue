@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
 
@@ -10,22 +10,40 @@ const citizenId = ref("");
 const username = ref("");
 const password = ref("");
 const houseOwnerName = ref("");
-
+const prefix = ref("")
+const customPrefix = ref("")
+const birthDate = ref("")
 const success = ref("");
 const error = ref("");
 const router = useRouter();
+
+const finalPrefix = computed(() => {
+    return prefix.value === "อื่นๆ" ? customPrefix.value : prefix.value
+})
 
 const submitForm = async () => {
     success.value = "";
     error.value = "";
 
+    const today = new Date()
+    const birth = new Date(birthDate.value)
+    let age = today.getFullYear() - birth.getFullYear()
+    const m = today.getMonth() - birth.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+    if (age < 18) {
+        error.value = "ผู้สมัครต้องมีอายุ 18 ปีขึ้นไป"
+        return
+    }
+
     try {
         await axios.post("http://localhost:8000/api/accounts/register-request/", {
+            prefix: finalPrefix.value,
             full_name: fullName.value,
             phone: phone.value,
             address: address.value,
             citizen_id: citizenId.value,
             house_owner_name: houseOwnerName.value,
+            birth_date: birthDate.value,
             username: username.value,
             password: password.value,
         });
@@ -71,6 +89,32 @@ const submitForm = async () => {
       <!-- FORM -->
       <form @submit.prevent="submitForm" class="space-y-6">
 
+        <!-- Prefix -->
+        <div>
+          <label class="block text-gray-700 mb-1">คำนำหน้า</label>
+          <select
+            v-model="prefix"
+            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-darkBlue focus:outline-none"
+          >
+            <option value="" disabled>เลือกคำนำหน้า</option>
+            <option value="นาย">นาย</option>
+            <option value="นาง">นาง</option>
+            <option value="นางสาว">นางสาว</option>
+            <option value="อื่นๆ">อื่นๆ</option>
+          </select>
+        </div>
+
+        <!-- Custom Prefix (แสดงเฉพาะเมื่อเลือก อื่นๆ) -->
+        <div v-if="prefix === 'อื่นๆ'">
+          <label class="block text-gray-700 mb-1">ระบุคำนำหน้า</label>
+          <input
+            type="text"
+            v-model="customPrefix"
+            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-darkBlue focus:outline-none"
+            placeholder="กรอกคำนำหน้า"
+          />
+        </div>
+
         <!-- Full Name -->
         <div>
           <label class="block text-gray-700 mb-1">ชื่อ - นามสกุล</label>
@@ -82,6 +126,16 @@ const submitForm = async () => {
           />
         </div>
 
+        <!-- Birth Date -->
+        <div>
+          <label class="block text-gray-700 mb-1">วันเดือนปีเกิด</label>
+          <input
+            type="date"
+            v-model="birthDate"
+            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-darkBlue focus:outline-none"
+          />
+        </div>
+        
         <!-- Phone -->
         <div>
           <label class="block text-gray-700 mb-1">เบอร์โทรศัพท์</label>

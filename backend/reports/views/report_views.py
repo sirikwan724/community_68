@@ -159,6 +159,10 @@ def report_done(request, pk):
     report.status = "resolved"
     report.save()
 
+    message = request.data.get("message", "").strip()
+    if message:
+        ReportNote.objects.create(report=report, text=message)
+
     return Response({"message": "อัปเดตสถานะแล้วเสร็จ"})
 
 

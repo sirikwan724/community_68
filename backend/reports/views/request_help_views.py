@@ -84,7 +84,7 @@ def cancel_my_request(request, pk):
     if req.status != "pending":
         return Response({"detail": "คำขอนี้ไม่สามารถยกเลิกได้"}, status=400)
 
-    req.status = "rejected"
+    req.status = "canceled"
     req.save()
 
     return Response({"message": "ยกเลิกคำขอแล้ว"})
@@ -112,8 +112,58 @@ def request_help_approve(request, pk):
     if request.user.role != "admin":
         return Response({"detail": "ไม่มีสิทธิ์"}, status=403)
 
-    help_obj = RequestHelp.objects.get(pk=pk)
+    try:
+        help_obj = RequestHelp.objects.get(pk=pk)
+    except RequestHelp.DoesNotExist:
+        return Response({"detail": "ไม่พบคำขอนี้"}, status=404)
+
     help_obj.status = "approved"
     help_obj.save()
 
     return Response({"message": "อนุมัติแล้ว"})
+
+# =====================================================
+# ADMIN: ปฏิเสธคำขอ
+# =====================================================
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def request_help_reject(request, pk):
+    if request.user.role != "admin":
+        return Response({"detail": "ไม่มีสิทธิ์"}, status=403)
+
+    try:
+        help_obj = RequestHelp.objects.get(pk=pk)
+    except RequestHelp.DoesNotExist:
+        return Response({"detail": "ไม่พบคำขอนี้"}, status=404)
+
+    if help_obj.status in ["rejected", "done", "canceled"]:
+        return Response({"detail": "ไม่สามารถเปลี่ยนสถานะได้"}, status=400)
+
+    help_obj.status = "rejected"
+    help_obj.reject_reason = request.data.get("reason", "")
+    help_obj.save()
+
+    return Response({"message": "ปฏิเสธคำขอแล้ว"})
+
+
+# =====================================================
+# ADMIN: ปิดงาน (done)
+# =====================================================
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def request_help_done(request, pk):
+    if request.user.role != "admin":
+        return Response({"detail": "ไม่มีสิทธิ์"}, status=403)
+
+    try:
+        help_obj = RequestHelp.objects.get(pk=pk)
+    except RequestHelp.DoesNotExist:
+        return Response({"detail": "ไม่พบคำขอนี้"}, status=404)
+
+    if help_obj.status != "approved":
+        return Response({"detail": "ต้องอนุมัติก่อนถึงจะปิดงานได้"}, status=400)
+
+    help_obj.status = "done"
+    help_obj.save()
+
+    return Response({"message": "ปิดงานเสร็จสิ้น"})

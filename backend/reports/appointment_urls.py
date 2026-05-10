@@ -9,6 +9,7 @@ from .views.appointment_views import (
     reject_appointment,
     add_appointment_note,
     appointment_detail,
+    done_appointment,
 )
 
 urlpatterns = [
@@ -19,10 +20,10 @@ urlpatterns = [
     path("my/<int:pk>/", appointment_detail),
 
     # ADMIN
-    path("admin/", admin_appointments),
     path("all/", admin_appointments),
 
     path("<int:pk>/approve/", approve_appointment),
     path("<int:pk>/reject/", reject_appointment),
     path("<int:pk>/note/", add_appointment_note),
+    path("<int:pk>/done/", done_appointment),
 ]

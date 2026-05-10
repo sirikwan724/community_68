@@ -16,6 +16,8 @@ class User(AbstractUser):
     citizen_id = models.CharField(max_length=11, blank=True, null=True)
     house_owner_name = models.CharField(max_length=200, blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True)
+    prefix = models.CharField(max_length=50, blank=True, null=True)
+    birth_date = models.DateField(blank=True, null=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='guest')
     verified = models.BooleanField(default=False)
 
@@ -41,6 +43,8 @@ class RegistrationRequest(models.Model):
     address = models.TextField()
     citizen_id = models.CharField(max_length=11)  # รหัสทะเบียนบ้าน
     house_owner_name = models.CharField(max_length=200)
+    prefix = models.CharField(max_length=50, blank=True, null=True)
+    birth_date = models.DateField(blank=True, null=True)
     password = models.CharField(max_length=200)  # เก็บ hash
     status = models.CharField(max_length=20, default="pending")  # pending / approved / rejected
     created_at = models.DateTimeField(auto_now_add=True)

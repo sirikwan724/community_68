@@ -42,6 +42,8 @@ urlpatterns = [
     # -------------------------
     path("help/admin/", views.admin_request_help),
     path("help/<int:pk>/approve/", views.request_help_approve),
+    path("help/<int:pk>/reject/", views.request_help_reject),
+    path("help/<int:pk>/done/", views.request_help_done),
 
     # -------------------------
     # Statistics

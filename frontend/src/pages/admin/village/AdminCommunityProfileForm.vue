@@ -22,18 +22,30 @@
         <select v-model="form.group" class="w-full border rounded-lg px-3 py-2">
           <option value="leader">ผู้นำชุมชน</option>
           <option value="committee">คณะกรรมการ</option>
-          <option value="volunteer">อสม.</option>
+          <option value="volunteer">อสม.(อาสาสาธารณสุขประจำหมู่บ้าน) </option>
         </select>
       </div>
 
-      <!-- Level -->
+      <!-- Prefix -->
       <div>
-        <label class="block text-sm font-medium mb-1">ระดับ</label>
-        <select v-model="form.level" class="w-full border rounded-lg px-3 py-2">
-          <option :value="1">ตำแหน่งหลัก</option>
-          <option :value="2">รอง</option>
-          <option :value="3">สมาชิกทั่วไป</option>
+        <label class="block text-sm font-medium mb-1">คำนำหน้า</label>
+        <select v-model="form.prefix" class="w-full border rounded-lg px-3 py-2">
+          <option value="" disabled>-- เลือกคำนำหน้า --</option>
+          <option value="นาย">นาย</option>
+          <option value="นาง">นาง</option>
+          <option value="นางสาว">นางสาว</option>
+          <option value="อื่นๆ">อื่นๆ</option>
         </select>
+      </div>
+
+      <!-- Custom Prefix (แสดงเมื่อเลือก อื่นๆ) -->
+      <div v-if="form.prefix === 'อื่นๆ'">
+        <label class="block text-sm font-medium mb-1">ระบุคำนำหน้า</label>
+        <input
+          v-model="customPrefix"
+          class="w-full border rounded-lg px-3 py-2"
+          placeholder="กรอกคำนำหน้า"
+        />
       </div>
 
       <!-- Name -->
@@ -45,7 +57,12 @@
       <!-- Position -->
       <div>
         <label class="block text-sm font-medium mb-1">ตำแหน่ง</label>
-        <input v-model="form.position" class="w-full border rounded-lg px-3 py-2" />
+        <select v-model="form.position" class="w-full border rounded-lg px-3 py-2">
+          <option value="" disabled>-- เลือกตำแหน่ง --</option>
+          <option v-for="pos in availablePositions" :key="pos.name" :value="pos.name">
+            {{ pos.name }}
+          </option>
+        </select>
       </div>
 
       <!-- Phone -->
@@ -93,7 +110,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, computed } from "vue"
+import { reactive, ref, onMounted, computed, watch, nextTick } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import api from "@/services/api"
 
@@ -102,14 +119,49 @@ const router = useRouter()
 
 const isEdit = computed(() => !!route.params.id)
 
+const POSITION_CONFIG = {
+  leader: [
+    { name: "ผู้ใหญ่บ้าน" },
+    { name: "ผู้ช่วยผู้ใหญ่บ้าน" },
+    { name: "อาสาเกษตรหมู่บ้าน" },
+    { name: "อบต." },
+    { name: "อปพร." },
+  ],
+  volunteer: [
+    { name: "ประธานอาสาสาธารณสุขประจำหมู่บ้าน" },
+    { name: "รองประธานอาสาสาธารณสุขประจำหมู่บ้าน" },
+    { name: "อาสาสาธารณสุขประจำหมู่บ้าน" },
+  ],
+  committee: [
+    { name: "ประธานคณะกรรมการหมู่บ้าน" },
+    { name: "รองประธานคณะกรรมการ" },
+    { name: "กรรมการหมู่บ้าน" },
+  ],
+}
+
 const form = reactive({
   group: "leader",
+  prefix: "",
   position: "",
   full_name: "",
   phone: "",
   email: "",
   description: "",
-  level: 3
+})
+
+const customPrefix = ref("")
+
+const finalPrefix = computed(() =>
+  form.prefix === "อื่นๆ" ? customPrefix.value : form.prefix)
+
+const availablePositions = computed(() => POSITION_CONFIG[form.group] || [])
+
+let isLoadingProfile = false
+
+watch(() => form.group, () => {
+  if (!isLoadingProfile) {
+    form.position = ""
+  }
 })
 
 const imageFile = ref(null)
@@ -121,59 +173,24 @@ const handleFile = (e) => {
 }
 
 const fetchProfile = async () => {
+  isLoadingProfile = true
   const res = await api.get(`/admin/village/profiles/${route.params.id}/`)
   Object.assign(form, res.data)
   previewImage.value = res.data.image
+  await nextTick()
+  isLoadingProfile = false
 }
 
-// const submitForm = async () => {
-//   try {
-//     const formData = new FormData()
-
-//     Object.entries(form).forEach(([key, value]) => {
-//       if (key !== "image" && key !== "level") {
-//         if (key === "email" ){
-//           if (!value || value === "-"){
-//             return
-//           }
-//         }
-//         formData.append(key, value)
-//       }
-//     })
-//     formData.append("level", Number(form.level))
-
-//     if (imageFile.value) {
-//       formData.append("image", imageFile.value)
-//     }
-
-//     if (isEdit.value) {
-//       await api.put(
-//         `/admin/village/profiles/${route.params.id}/`,
-//         formData
-//       )
-//     } else {
-//       await api.post("/admin/village/profiles/", formData)
-//     }
-
-//     router.push("/admin/profiles")
-//   } catch (err) {
-//     console.log("FULL ERROR:", err.response?.data)
-//     alert(JSON.stringify(err.response?.data))
-//   }
-// }
 const submitForm = async () => {
   try {
     const formData = new FormData()
 
     Object.entries(form).forEach(([key, value]) => {
       if (key === "image") return
+      if (key === "email" && (!value || value === "-")) return
 
-      if (key === "email") {
-        if (!value || value === "-") return
-      }
-
-      if (key === "level") {
-        formData.append("level", Number(value))
+      if (key === "prefix") {
+        formData.append("prefix", finalPrefix.value)
       } else {
         formData.append(key, value)
       }

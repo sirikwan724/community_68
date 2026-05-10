@@ -47,20 +47,6 @@ class CreateBorrowRequestView(generics.CreateAPIView):
                         f"{bi.item.name} มีจำนวนไม่เพียงพอ"
                     )
 
-
-class MyBorrowRequestListView(generics.ListAPIView):
-    """
-    ผู้ใช้งานดูคำขอยืมของตัวเอง
-    """
-    serializer_class = BorrowRequestReadSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return BorrowRequest.objects.filter(
-            user=self.request.user
-        ).prefetch_related("items__item")
-
-
 class RequestReturnView(APIView):
     """
     ผู้ใช้งานกดแจ้งคืนของ

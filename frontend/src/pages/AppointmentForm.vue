@@ -1,11 +1,22 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue"
 import axios from "axios";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
-
 const token = localStorage.getItem("access");
+
+const today = new Date()
+const minDate = today.toISOString().split("T")[0] 
+
+const minStartTime = computed(() => {
+  if (form.value.date === minDate) {
+    const hh = String(today.getHours()).padStart(2, "0")
+    const mm = String(today.getMinutes()).padStart(2, "0")
+    return `${hh}:${mm}`
+  }
+  return ""
+})
 
 // -------------------------------
 // ฟอร์มหลัก
@@ -38,6 +49,27 @@ const placeOptions = [
 // ส่งข้อมูลไป Backend (ถูกต้อง)
 // -------------------------------
 const submitForm = async () => {
+  
+  if (!form.value.date || !form.value.start_time || !form.value.end_time) {
+    alert("กรุณากรอกวันที่และเวลาให้ครบ")
+    return
+  }
+
+  if (form.value.date < minDate) {
+    alert("ไม่สามารถเลือกวันที่ผ่านมาแล้วได้")
+    return
+  }
+
+  if (form.value.date === minDate && form.value.start_time < minStartTime.value) {
+    alert("ไม่สามารถเลือกเวลาที่ผ่านมาแล้วได้")
+    return
+  }
+
+  if (form.value.end_time <= form.value.start_time) {
+    alert("เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น")
+    return
+  }
+
   try {
     const payload = {
       meet_with: form.value.target,
@@ -90,15 +122,15 @@ const cancelForm = () => {
 
     <!-- วันที่ต้องการนัด -->
     <label class="font-semibold">วันที่ต้องการนัด</label>
-    <input type="date" v-model="form.date" class="w-full p-2 border rounded mt-1 mb-4" />
+    <input type="date" v-model="form.date" :min="minDate" class="w-full p-2 border rounded mt-1 mb-4" />
 
     <!-- เวลาเริ่มต้น -->
     <label class="font-semibold">เวลาเริ่มต้น</label>
-    <input type="time" v-model="form.start_time" class="w-full p-2 border rounded mt-1 mb-4" />
+    <input type="time" v-model="form.start_time" :min="minStartTime" class="w-full p-2 border rounded mt-1 mb-4" />
 
     <!-- เวลาสิ้นสุด -->
     <label class="font-semibold">เวลาสิ้นสุด</label>
-    <input type="time" v-model="form.end_time" class="w-full p-2 border rounded mt-1 mb-4" />
+    <input type="time" v-model="form.end_time" :min="form.start_time" class="w-full p-2 border rounded mt-1 mb-4" />
 
     <!-- เหตุผล -->
     <label class="font-semibold">เหตุผลในการนัดหมาย</label>

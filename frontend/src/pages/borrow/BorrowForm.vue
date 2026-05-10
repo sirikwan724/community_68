@@ -4,6 +4,13 @@ import { useRouter } from "vue-router";
 import { BorrowService } from "@/services/borrow.service";
 import api from "@/services/api";
 
+const nowDatetime = computed(() => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const local = new Date(now.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+});
+
 // =========================
 // STATE หลัก
 // =========================
@@ -261,6 +268,7 @@ const submit = async () => {
         <input
           type="datetime-local"
           v-model="form.start_datetime"
+          :min="nowDatetime"
           class="border p-2 w-full"
         />
       </div>
@@ -270,6 +278,7 @@ const submit = async () => {
         <input
           type="datetime-local"
           v-model="form.end_datetime"
+          :min="nowDatetime"
           class="border p-2 w-full"
         />
       </div>
@@ -279,6 +288,7 @@ const submit = async () => {
         <input
           type="datetime-local"
           v-model="form.pickup_datetime"
+          :min="nowDatetime"
           class="border p-2 w-full"
         />
       </div>
@@ -288,6 +298,7 @@ const submit = async () => {
         <input
           type="datetime-local"
           v-model="form.expected_return_datetime"
+          :min="nowDatetime"
           class="border p-2 w-full"
         />
       </div>

@@ -63,6 +63,17 @@ const approve = async (id) => {
   loadData();
 };
 
+// ปฏิเสธ
+const reject = async ({ id, reason }) => {
+  await axios.patch(
+    `http://localhost:8000/api/reports/help/${id}/reject/`,
+    { reason },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  modalOpen.value = false;
+  loadData();
+};
+
 // แปลงวันเวลาให้อ่านง่าย
 const formatTime = (datetime) => {
   if (!datetime) return "-";
@@ -210,6 +221,7 @@ onMounted(loadData);
       :data="selected"
       @close="modalOpen = false"
       @approve="approve"
+      @reject="reject"
     />
 
   </div>

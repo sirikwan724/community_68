@@ -14,7 +14,7 @@ const modalOpen = ref(false);
 // โหลดข้อมูลนัดหมายของ user
 const loadAppointments = async () => {
   try {
-    const res = await axios.get("http://localhost:8000/api/appointment/my/", {
+    const res = await axios.get("http://localhost:8000/api/appointments/my/", {
       headers: { Authorization: `Bearer ${token}` },
     });
     appointments.value = res.data;
@@ -34,7 +34,7 @@ const cancelAppointment = async (id) => {
 
   try {
     await axios.patch(
-      `http://localhost:8000/api/appointment/${id}/cancel/`,
+      `http://localhost:8000/api/appointments/my/${id}/cancel/`,
       {},
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -83,7 +83,7 @@ onMounted(loadAppointments);
         class="bg-white border shadow p-4 rounded-lg flex justify-between items-start"
       >
         <div>
-          <p class="font-semibold text-lg">{{ item.target }}</p>
+          <p class="font-semibold text-lg">{{ item.meet_with_label }}</p>
 
           <p class="text-sm text-gray-600">
             วันที่นัดหมาย: {{ formatDate(item.date) }}
@@ -94,7 +94,7 @@ onMounted(loadAppointments);
           </p>
 
           <p class="text-sm text-gray-600">
-            สถานที่: {{ item.place }}
+            สถานที่: {{ item.meeting_place_label }}
           </p>
 
           <!-- Badge สถานะ -->
@@ -104,7 +104,7 @@ onMounted(loadAppointments);
               'bg-yellow-100 text-yellow-700': item.status === 'pending',
               'bg-green-100 text-green-700': item.status === 'approved',
               'bg-red-100 text-red-700': item.status === 'rejected',
-              'bg-blue-100 text-blue-700': item.status === 'done',
+              'bg-gray-100 text-gray-700': item.status === 'canceled',
             }"
           >
             {{
@@ -113,8 +113,10 @@ onMounted(loadAppointments);
                 : item.status === "approved"
                 ? "อนุมัติแล้ว"
                 : item.status === "rejected"
-                ? "ถูกยกเลิก"
-                : "ดำเนินการเสร็จสิ้น"
+                ? "ปฏิเสธนัดหมาย"
+                : item.status === "canceled"
+                ? "ยกเลิกโดยผู้ใช้"
+                : "-"
             }}
           </span>
 

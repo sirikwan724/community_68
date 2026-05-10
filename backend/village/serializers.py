@@ -90,19 +90,24 @@ class CommunityProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ["village"]
 
     def validate(self, data):
+        from .models import POSITION_CONFIG
+
         village = self.instance.village if self.instance else Village.objects.first()
-        group = data.get("group")
-        level = data.get("level")
+        group = data.get("group", getattr(self.instance, "group", None))
+        position = data.get("position", getattr(self.instance, "position", None))
 
-        queryset = CommunityProfile.objects.filter(village=village, group=group, level=level)
-        if self.instance:
-            queryset = queryset.exclude(id=self.instance.id)
-
-        if level == 1 and queryset.count() >= 1:
-            raise serializers.ValidationError("ในแต่ละกลุ่มมีตำแหน่งหลักได้เพียง 1 คน")
-        if level == 2 and queryset.count() >= 3:
-            raise serializers.ValidationError("ในแต่ละกลุ่มมีรองได้ไม่เกิน 3 คน")
-
+        group_positions = POSITION_CONFIG.get(group, [])
+        for pos_config in group_positions:
+            if position == pos_config["name"] and pos_config["max"] is not None:
+                queryset = CommunityProfile.objects.filter(
+                    village=village, group=group, position=position
+                )
+                if self.instance:
+                    queryset = queryset.exclude(id=self.instance.id)
+                if queryset.count() >= pos_config["max"]:
+                    raise serializers.ValidationError(
+                        f"ตำแหน่ง {position} มีได้ไม่เกิน {pos_config['max']} คน"
+                    )
         return data
 
 

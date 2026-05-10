@@ -35,6 +35,7 @@ const months = [
 ];
 
 const modalOpen = ref(false);
+const openWithReject = ref(false);
 
 // โหลดข้อมูลทั้งหมด
 const loadAppointments = async () => {
@@ -75,6 +76,12 @@ const openDetail = (item) => {
   modalOpen.value = true;
 };
 
+const openDetailWithReject = (item) => {
+  selected.value = item;
+  openWithReject.value = true;
+  modalOpen.value = true;
+};
+
 // อนุมัติ
 const approve = async (id) => {
   if (!confirm("ยืนยันการอนุมัตินัดหมายนี้หรือไม่?")) return;
@@ -93,16 +100,16 @@ const approve = async (id) => {
 };
 
 // ยกเลิก
-const reject = async (id) => {
-  if (!confirm("ต้องการยกเลิกนัดหมายนี้หรือไม่?")) return;
+const reject = async ({ id, note }) => {
   try {
     await axios.patch(
       `http://localhost:8000/api/appointments/${id}/reject/`,
-      {},
+      { note },
       { headers: { Authorization: `Bearer ${token}` } }
     );
     alert("ยกเลิกสำเร็จ");
     modalOpen.value = false;
+    openWithReject.value = false;
     loadAppointments();
   } catch (err) {
     console.error(err);
@@ -245,10 +252,9 @@ onMounted(loadAppointments);
                 อนุมัติ
               </button>
 
-              <!-- ปุ่มปฏิเสธ -->
               <button
                 v-if="item.status === 'pending'"
-                @click="reject(item.id)"
+                @click="openDetailWithReject(item)"
                 class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
               >
                 ปฏิเสธ
@@ -264,7 +270,8 @@ onMounted(loadAppointments);
     <AppointmentDetailModal
       v-if="modalOpen"
       :appointment="selected"
-      @close="modalOpen = false"
+      :auto-reject="openWithReject"
+      @close="modalOpen = false; openWithReject = false"
       @approve="approve"
       @reject="reject"
       @done="done"

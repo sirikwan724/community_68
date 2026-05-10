@@ -93,7 +93,7 @@ const submitEdit = async () => {
     // ถ้าไม่เลือก ไม่ส่ง -> รูปเดิมยังอยู่
     if (imageFile.value) formData.append("image", imageFile.value);
 
-    await api.put(`/services/reports/my/${id}/`, formData, {
+    await api.patch(`/services/reports/my/${id}/`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
 
