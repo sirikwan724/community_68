@@ -75,12 +75,11 @@ def find_column(df, keywords):
                 return col
     return None
 
-
 # -----------------------------
 # Fund: Import Excel
 # -----------------------------
 class FundLoanExcelImportAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminRole]
     parser_classes = [MultiPartParser]
 
     def post(self, request, record_id):
@@ -94,7 +93,8 @@ class FundLoanExcelImportAPIView(APIView):
         header_row = find_header_row(df_raw)
         if header_row is None:
             return Response({"detail": "ไม่พบหัวตาราง"}, status=400)
-
+        
+        file.seek(0)
         df = pd.read_excel(file, header=header_row)
         df.columns = df.columns.str.strip()
 
@@ -146,7 +146,6 @@ class FundLoanExcelImportAPIView(APIView):
 
         return Response({"message": f"นำเข้าข้อมูลสำเร็จ {created} รายการ", "skipped": skipped})
 
-
 # -----------------------------
 # Public: Village Full (ใหม่)
 # -----------------------------
@@ -183,7 +182,6 @@ class CommunityProfileListAPIView(generics.ListAPIView):
                 output_field=IntegerField()
             )
         ).order_by("group_order", "level")
-
 
 # -----------------------------
 # Public: Funds
@@ -349,7 +347,7 @@ class CommunityProfileDetailAdminAPIView(generics.RetrieveUpdateDestroyAPIView):
 # Admin: Funds
 # -----------------------------
 class FundTypeAdminAPIView(generics.ListCreateAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminRole]
     serializer_class = FundTypeSerializer
 
     def get_queryset(self):
@@ -361,12 +359,12 @@ class FundTypeAdminAPIView(generics.ListCreateAPIView):
         serializer.save(village=village)
 
 class FundTypeDetailAdminAPIView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminRole]
     serializer_class = FundTypeSerializer
     queryset = FundType.objects.all()
 
 class FundRecordAdminAPIView(generics.ListCreateAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminRole]
     serializer_class = FundRecordSerializer
 
     def get_queryset(self):

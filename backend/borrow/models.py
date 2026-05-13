@@ -74,6 +74,8 @@ class BorrowRequest(models.Model):
         default='pending'
     )
 
+    admin_note = models.TextField(blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

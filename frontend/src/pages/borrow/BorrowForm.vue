@@ -24,11 +24,10 @@ const cancelForm = () => {
 };
 
 const form = ref({
-  // ITEM
   items: [
-    { item: null, quantity: 1 },
-    { item: null, quantity: 1 },
-    { item: null, quantity: 1 },
+    { item: null, quantity: 0 },
+    { item: null, quantity: 0 },
+    { item: null, quantity: 0 },
   ],
 
   // LOCATION
@@ -49,9 +48,9 @@ watch(borrowType, (newType) => {
   if (newType === "LOCATION") {
     // รีเซ็ตสิ่งของ
     form.value.items = [
-      { item: null, quantity: 1 },
-      { item: null, quantity: 1 },
-      { item: null, quantity: 1 },
+      { item: null, quantity: 0 },
+      { item: null, quantity: 0 },
+      { item: null, quantity: 0 },
     ];
   }
 
@@ -183,7 +182,7 @@ const submit = async () => {
     await BorrowService.createRequest(payload);
 
     alert("ส่งคำขอเรียบร้อย");
-    router.push("/my-history");
+    router.push({ path: "/my-history", query: { tab: "borrows" } });
   } catch (err) {
     console.error(err.response?.data);
     alert(JSON.stringify(err.response?.data));
@@ -216,7 +215,7 @@ const submit = async () => {
         :key="index"
         class="border rounded p-3 mb-3"
       >
-        <select v-model="row.item" class="border p-2 w-full mb-2">
+        <select v-model="row.item" class="border p-2 w-full mb-2" @change="row.quantity = row.item ? 1 : 0">
           <option :value="null">ไม่ยืม</option>
           <option
             v-for="item in items"
@@ -231,14 +230,19 @@ const submit = async () => {
           {{ getStockText(row.item) }}
         </div>
 
-        <input
-          type="number"
-          min="1"
-          v-model.number="row.quantity"
-          class="border p-2 w-full"
-          placeholder="จำนวนที่ต้องการยืม"
-        />
-      </div>
+        <div v-if="row.item">
+          <input
+            type="number"
+            min="1"
+            v-model.number="row.quantity"
+            class="border p-2 w-full"
+            placeholder="จำนวนที่ต้องการยืม"
+          />
+        </div>
+        <div v-else class="border p-2 w-full bg-gray-100 text-gray-400 rounded">
+          กรุณาเลือกสิ่งของก่อน
+        </div>
+      </div>      
     </div>
 
     <!-- =========================

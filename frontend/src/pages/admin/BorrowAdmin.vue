@@ -5,6 +5,16 @@ import { BorrowService } from "@/services/borrow.service";
 const borrows = ref([]);
 const loading = ref(true);
 
+const showRejectModal = ref(false);
+const rejectingId = ref(null);
+const rejectNote = ref("");
+
+const expandedProfileId = ref(null);
+
+const toggleProfile = (id) => {
+  expandedProfileId.value = expandedProfileId.value === id ? null : id;
+};
+
 const filterMonth = ref("all");   // 1–12 หรือ all
 const filterYear = ref("all");    // 2568 / 2569 หรือ all
 const filterStatus = ref("all");  // pending / approved / ...
@@ -87,10 +97,32 @@ const approve = async (id) => {
   loadBorrows();
 };
 
-const reject = async (id) => {
-  if (!confirm("ปฏิเสธคำขอนี้?")) return;
-  await BorrowService.reject(id);
-  loadBorrows();
+const getOverdueDays = (expectedReturn) => {
+  if (!expectedReturn) return 0;
+  const now = new Date();
+  const expected = new Date(expectedReturn);
+  if (now <= expected) return 0;
+  return Math.floor((now - expected) / (1000 * 60 * 60 * 24));
+};
+
+const openRejectModal = (id) => {
+  rejectingId.value = id;
+  rejectNote.value = "";
+  showRejectModal.value = true;
+};
+
+const confirmReject = async () => {
+  if (!rejectNote.value.trim()) {
+    alert("กรุณากรอกเหตุผลการปฏิเสธ");
+    return;
+  }
+  try {
+    await BorrowService.reject(rejectingId.value, rejectNote.value);
+    showRejectModal.value = false;
+    loadBorrows();
+  } catch (err) {
+    alert("เกิดข้อผิดพลาด");
+  }
 };
 
 const confirmReturn = async (id) => {
@@ -156,19 +188,32 @@ onMounted(loadBorrows);
             <span v-if="b.borrow_type === 'ITEM'">ยืมสิ่งของ</span>
             <span v-else>จองสถานที่</span>
           </h3>
-          <p class="text-sm text-gray-600">ชื่อผู้ขอ: {{ b.borrower_name }}</p>
-          <p class="text-sm text-gray-600">เบอร์โทร: {{ b.borrower_phone }}</p>
-
+          <span
+            class="px-3 py-1 rounded-md text-xs font-bold"
+            :class="statusClass[b.status]"
+          >
+            {{ statusLabel[b.status] }}
+          </span>
+          <p class="text-sm text-gray-600">
+            ชื่อผู้ขอ:
+            <button
+              @click="toggleProfile(b.id)"
+              class="text-blue-600 hover:underline font-medium"
+            >
+              {{ b.borrower_name }}
+            </button>
+          </p>
+          <div
+            v-if="expandedProfileId === b.id && b.borrower_profile"
+            class="mt-2 p-3 bg-blue-50 border border-blue-100 rounded text-sm space-y-1"
+          >
+            <p><span class="text-gray-500">ชื่อ-นามสกุล:</span> {{ b.borrower_profile.full_name || '-' }}</p>
+            <p><span class="text-gray-500">เบอร์โทร:</span> {{ b.borrower_profile.phone || '-' }}</p>
+            <p><span class="text-gray-500">รหัสทะเบียนบ้าน:</span> {{ b.borrower_profile.citizen_id || '-' }}</p>
+            <p><span class="text-gray-500">ที่อยู่:</span> {{ b.borrower_profile.address || '-' }}</p>
+            <p><span class="text-gray-500">ชื่อเจ้าบ้าน:</span> {{ b.borrower_profile.house_owner_name || '-' }}</p>          </div>
           <p v-if="b.purpose" class="text-sm text-gray-600 mt-1">วัตถุประสงค์: {{ b.purpose }}</p>
         </div>
-
-        <span
-          class="px-3 py-1 rounded-md text-xs font-bold"
-          :class="statusClass[b.status]"
-        >
-          {{ statusLabel[b.status] }}
-        </span>
-
       </div>
 
       <!-- รายละเอียด -->
@@ -189,7 +234,18 @@ onMounted(loadBorrows);
       </p>
 
       <p class="text-sm text-gray-500">รับของ/สถานที่: {{ formatDT(b.pickup_datetime) }}</p>
-      <p class="text-sm text-gray-500">วันส่งคืน: {{ formatDT(b.expected_return_datetime) }}</p>
+      <p class="text-sm text-gray-500">วันส่งคืน: {{ formatDT(b.expected_return_datetime) }}
+        <span
+          v-if="['approved', 'return_requested'].includes(b.status) && getOverdueDays(b.expected_return_datetime) > 0"
+          class="ml-2 font-bold text-red-600"
+        >
+          เกินกำหนด {{ getOverdueDays(b.expected_return_datetime) }} วัน
+        </span>
+      </p>
+
+      <p v-if="b.status === 'rejected' && b.admin_note" class="text-sm text-red-600 mt-2">
+        เหตุผล: {{ b.admin_note }}
+      </p>
 
       <!-- ปุ่ม -->
       <div class="mt-4 flex gap-3">
@@ -203,7 +259,7 @@ onMounted(loadBorrows);
 
         <button
           v-if="b.status === 'pending'"
-          @click="reject(b.id)"
+          @click="openRejectModal(b.id)"
           class="px-3 py-1 bg-red-600 text-white rounded"
         >
           ปฏิเสธ
@@ -215,6 +271,34 @@ onMounted(loadBorrows);
           class="px-3 py-1 bg-orange-500 text-white rounded"
         >
           ยืนยันคืน
+        </button>
+      </div>
+    </div>
+  </div>
+  <div
+    v-if="showRejectModal"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  >
+    <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
+      <h2 class="text-lg font-bold mb-4">เหตุผลการปฏิเสธ</h2>
+      <textarea
+        v-model="rejectNote"
+        rows="4"
+        class="w-full border rounded p-2 mb-4"
+        placeholder="กรุณาระบุเหตุผล..."
+      ></textarea>
+      <div class="flex gap-3 justify-end">
+        <button
+          @click="showRejectModal = false"
+          class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+        >
+          ยกเลิก
+        </button>
+        <button
+          @click="confirmReject"
+          class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          ยืนยันปฏิเสธ
         </button>
       </div>
     </div>

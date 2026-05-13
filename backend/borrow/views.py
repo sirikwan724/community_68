@@ -193,8 +193,16 @@ class AdminRejectBorrowView(APIView):
                 {"error": "ไม่สามารถปฏิเสธคำขอนี้ได้"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        note = request.data.get("note", "").strip()
+        if not note:
+            return Response(
+                {"error": "กรุณาระบุเหตุผลการปฏิเสธ"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         borrow.status = 'rejected'
+        borrow.admin_note = note
         borrow.save()
 
         return Response(
@@ -268,7 +276,7 @@ class MyBorrowRequestListView(generics.ListAPIView):
     def get_queryset(self):
         return BorrowRequest.objects.filter(
             user=self.request.user
-        ).prefetch_related("items__item")
+        ).prefetch_related("items__item").order_by('-created_at')
 
 # ===============================
 # ADMIN STATS

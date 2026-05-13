@@ -1,5 +1,6 @@
 <script setup>
 // import { ref, onMounted, computed } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import api from "@/services/api";
 
@@ -43,7 +44,7 @@ const statusLabel = {
   processing: "กำลังดำเนินการ",
   approved: "อนุมัติแล้ว",
   rejected: "ปฏิเสธ",
-  canceled: "รายงานไม่ถูกต้อง",
+  canceled: "ยกเลิกแล้ว",
   cancelled: "ยกเลิกแล้ว",
   resolved: "เสร็จสิ้น",
   done: "เสร็จสิ้น",
@@ -67,8 +68,8 @@ const statusClass = {
 const placeLabel = {
   temple: "วัด",
   village_hall: "ศาลากลางหมู่บ้าน",
-  headman_office: "สำนักงานผู้ใหญ่บ้าน",
-  learning_center: "ศูนย์เรียนรู้หมู่บ้าน"
+  headman_office: "สถานที่ทำการผู้ใหญ่บ้าน",
+  learning_center: "ศูนย์ให้ความรู้หมู่บ้าน",
 };
 
 const apptStatusLabel = {
@@ -179,6 +180,7 @@ const cancelServiceReport = async (id) => {
     await api.patch(`/services/reports/my/${id}/cancel/`, {});
     alert("ยกเลิกคำร้องสำเร็จ");
     await refreshReportsTab(); 
+    mergeAll();
   } catch (err) {
     alert("ไม่สามารถยกเลิกได้");
   }
@@ -241,7 +243,8 @@ const requestReturn = async (id) => {
   try {
     await api.post(`/borrow/${id}/request-return/`, {});
     alert("แจ้งคืนเรียบร้อย รอแอดมินตรวจสอบ");
-    loadBorrows();
+    await loadBorrows();
+    mergeAll();
   } catch (err) {
     alert("ไม่สามารถแจ้งคืนได้");
   }
@@ -252,7 +255,8 @@ const cancelBorrow = async (id) => {
   try {
     await api.patch(`/borrow/my/${id}/cancel/`, {});
     alert("ยกเลิกคำขอเรียบร้อย");
-    loadBorrows();
+    await loadBorrows();
+    mergeAll();
   } catch (err) {
     alert("ไม่สามารถยกเลิกได้");
   }
@@ -269,6 +273,9 @@ const mergeAll = () => {
     detail: ap.reason,
     status: ap.status,
     created_at: ap.created_at,
+    date: ap.date,
+    start_time: ap.start_time,
+    end_time: ap.end_time,
   }));
 
   const formattedBorrows = borrows.value.map(b => ({
@@ -302,7 +309,7 @@ const cancelReport = async (id) => {
   try {
     await api.patch(`/reports/${id}/cancel/`, {});
     alert("ยกเลิกคำร้องสำเร็จ");
-    loadReports();
+    refreshReportsTab();
   } catch (err) {
     console.error(err);
     alert("เกิดข้อผิดพลาด ไม่สามารถยกเลิกได้");
@@ -317,8 +324,9 @@ const cancelRequest = async (id) => {
 
   try {
     await api.patch(`/reports/help/my/${id}/cancel/`, {});
-    alert("ยกเลิกคำขอเรียบร้อยแล้ว!");
-    loadRequests();
+    alert("ยกเลิกคำขอเรียบร้อยแล้ว");
+    await loadRequests();
+    mergeAll();
   } catch (err) {
     console.error(err);
     alert("ไม่สามารถยกเลิกคำขอได้");
@@ -334,11 +342,20 @@ const cancelAppointment = async (id) => {
   try {
     await api.patch(`/appointments/my/${id}/cancel/`, {});
     alert("ยกเลิกสำเร็จ");
-    loadAppointments();
+    await loadAppointments();
+    mergeAll();
   } catch (err) {
     console.error(err);
     alert("เกิดข้อผิดพลาด");
   }
+};
+
+const getOverdueDays = (expectedReturn) => {
+  if (!expectedReturn) return 0;
+  const now = new Date();
+  const expected = new Date(expectedReturn);
+  if (now <= expected) return 0;
+  return Math.floor((now - expected) / (1000 * 60 * 60 * 24));
 };
 
 // ---------------------------
@@ -348,7 +365,7 @@ onMounted(async () => {
   if (route.query.tab) {          
     activeTab.value = route.query.tab;
   }
-  await loadReports(); // โหลดรายงานปัญหาทั่วไป
+  //await loadReports(); // โหลดรายงานปัญหาทั่วไป
   await refreshReportsTab(); // โหลดรายงานปัญหาบริการสาธารณะของผู้ใช้
   await loadRequests(); // โหลดคำขอความอนุเคราะห์
   await loadAppointments(); // โหลดนัดหมาย
@@ -438,7 +455,7 @@ onMounted(async () => {
 
       <div
         v-for="item in reports"
-        :key="item.id"
+        :key="`${item.type}-${item.id}`"
         class="border rounded-md p-4 mb-4"
       >
         <div class="flex justify-between">
@@ -752,9 +769,15 @@ onMounted(async () => {
         <div v-if="item.status === 'approved'" class="mt-4">
           <button
             @click="requestReturn(item.id)"
-            class="px-4 py-2 bg-orange-500 text-white text-sm rounded hover:bg-orange-600"
+            class="px-4 py-2 text-white text-sm rounded font-semibold"
+            :class="getOverdueDays(item.expected_return_datetime) > 0
+              ? 'bg-red-600 hover:bg-red-700'
+              : 'bg-orange-500 hover:bg-orange-600'"
           >
             แจ้งคืน
+            <span v-if="getOverdueDays(item.expected_return_datetime) > 0" class="ml-1">
+              (เกินกำหนด {{ getOverdueDays(item.expected_return_datetime) }} วัน)
+            </span>
           </button>
         </div>
       </div>
@@ -771,13 +794,14 @@ onMounted(async () => {
 
       <div
         v-for="item in merged"
-        :key="item.id"
+        :key="`${item.type}-${item.id}`"
         class="border rounded-md p-4 mb-4"
       >
         <div class="flex justify-between">
 
           <h3 class="font-bold text-lg">
             <span v-if="item.type === 'report'">รายงานปัญหา: </span>
+            <span v-else-if="item.type === 'service_report'">รายงานบริการสาธารณะ: </span>
             <span v-else-if="item.type === 'request'">ขอความอนุเคราะห์: </span>
             <span v-else-if="item.type === 'appointment'">นัดหมาย: </span>
             <span v-else-if="item.type === 'borrow'">การยืม/จอง: </span>
@@ -797,7 +821,8 @@ onMounted(async () => {
         <p class="text-gray-600 mt-2">{{ item.detail }}</p>
 
         <p v-if="item.type === 'appointment'" class="text-gray-600 mt-1">
-          วันที่นัด: {{ item.created_at }}
+          วันที่นัด: {{ formatDate(item.date) }}
+          วลา {{ item.start_time?.slice(0,5) }} - {{ item.end_time?.slice(0,5) }}
         </p>
 
         <p class="text-sm text-gray-400 mt-1">

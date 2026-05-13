@@ -2,10 +2,12 @@ from rest_framework import serializers
 from django.db import transaction
 from .models import Item, BorrowItem, BorrowRequest, Location
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 # =========================
 # MASTER DATA
 # =========================
+User = get_user_model()
 
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -56,6 +58,14 @@ class BorrowItemSerializer(serializers.ModelSerializer):
                 "จำนวนที่ยืมต้องมากกว่า 0"
             )
         return value
+
+class BorrowerProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            'id', 'full_name', 'phone', 'address',
+            'citizen_id', 'house_owner_name', 'prefix', 'birth_date'
+        ]
 
 # =========================
 # BORROW REQUEST (ตัวหลัก)
@@ -147,6 +157,7 @@ class BorrowRequestReadSerializer(serializers.ModelSerializer):
         source="location.name",
         read_only=True
     )
+    borrower_profile = BorrowerProfileSerializer(source="user", read_only=True)
 
     class Meta:
         model = BorrowRequest
@@ -154,8 +165,10 @@ class BorrowRequestReadSerializer(serializers.ModelSerializer):
             "id",
             "borrow_type",
             "status",
+            "admin_note",
             "borrower_name",            
             "borrower_phone",
+            "borrower_profile",
             "items",
             "location_name",
             "start_datetime",
