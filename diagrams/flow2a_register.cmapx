@@ -1,7 +1,0 @@
-<map id="flow2a_register_map" name="flow2a_register_map">
-<area shape="rect" id="id1" href="username" title="username" alt="" coords="171,1583,202,1612"/>
-<area shape="rect" id="id2" href="username" title="username" alt="" coords="30,1843,103,1872"/>
-<area shape="rect" id="id3" href="อายุ" title="อายุ" alt="" coords="191,2004,403,2033"/>
-<area shape="rect" id="id4" href="อายุ" title="อายุ" alt="" coords="199,694,418,723"/>
-<area shape="rect" id="id5" href="ข้อมูลถูกต้องทั้งหมด" title="ข้อมูลถูกต้องทั้งหมด" alt="" coords="50,2264,271,2293"/>
-</map>

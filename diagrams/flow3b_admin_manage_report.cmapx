@@ -1,6 +1,0 @@
-<map id="flow3b_admin_manage_report_map" name="flow3b_admin_manage_report_map">
-<area shape="rect" id="id1" href="รับเรื่อง" title="รับเรื่อง" alt="" coords="171,2501,398,2530"/>
-<area shape="rect" id="id2" href="ย้อนกลับสถานะ" title="ย้อนกลับสถานะ" alt="" coords="30,4975,262,5004"/>
-<area shape="rect" id="id3" href="ดำเนินการเสร็จสิ้น" title="ดำเนินการเสร็จสิ้น" alt="" coords="30,3940,289,3969"/>
-<area shape="rect" id="id4" href="เพิ่มบันทึก" title="เพิ่มบันทึก" alt="" coords="30,3219,289,3248"/>
-</map>

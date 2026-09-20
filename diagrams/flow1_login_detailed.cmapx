@@ -1,6 +1,0 @@
-<map id="flow1_login_detailed_map" name="flow1_login_detailed_map">
-<area shape="rect" id="id1" href="username/password" title="username/password" alt="" coords="15,721,53,735"/>
-<area shape="rect" id="id2" href="username/password" title="username/password" alt="" coords="85,562,138,577"/>
-<area shape="rect" id="id3" href="role" title="role" alt="" coords="25,1114,86,1129"/>
-<area shape="rect" id="id4" href="role" title="role" alt="" coords="95,1070,168,1085"/>
-</map>

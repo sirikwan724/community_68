@@ -41,3 +41,13 @@ settings.local.json
 plantuml.jar
 
 *.puml
+
+/package.json
+/package-lock.json
+/render_diagrams.py
+/sequence_preview.html
+/view_diagram.html
+/class_diagram.md
+/class_diagram.mmd
+diagrams/*.cmapx
+diagrams/*.svg
