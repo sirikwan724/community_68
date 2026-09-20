@@ -1,0 +1,88 @@
+@startuml
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+
+title Flow 1 — User Login (Detailed)
+
+actor "ผู้ใช้งาน\n(User)" as User
+
+box "Frontend (Vue)" #EBF5FB
+    participant "LoginPage\n.vue" as Page
+    participant "api.js\n(axios)" as Axios
+    participant "router\n/index.js" as Router
+end box
+
+box "Backend (Django)" #EAF7EA
+    participant "accounts\n/urls.py" as URLs
+    participant "MyTokenObtain\nPairView\n(views.py)" as View
+    participant "MyTokenObtain\nPairSerializer\n(serializers.py)" as Serial
+    participant "User\n(models.py)" as Model
+end box
+
+database "Database" as DB
+
+== Login ==
+
+User -> Page : กรอก username + password\nกดปุ่ม Login
+activate Page
+
+Page -> Page : ตรวจ username/password\nไม่ว่าง?
+Page -> Axios : POST /api/accounts/login/\n{username, password}
+activate Axios
+
+Axios -> URLs : route /login/ → View
+activate URLs
+URLs -> View : MyTokenObtainPairView\n.as_view()
+deactivate URLs
+activate View
+
+View -> Serial : validate({username, password})
+activate Serial
+
+Serial -> Model : authenticate(username, password)
+activate Model
+Model -> DB : SELECT * FROM accounts_user\nWHERE username=?
+activate DB
+DB --> Model : user record
+deactivate DB
+Model --> Serial : user object
+deactivate Model
+
+alt [username/password ไม่ถูกต้อง]
+    Serial --> View : raise AuthenticationFailed
+    View --> Axios : 401 Unauthorized\n{"detail": "No active account..."}
+    Axios --> Page : error response
+    Page --> User : แสดง error\n"ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง"
+else [username/password ถูกต้อง]
+    Serial -> Serial : get_token(user)\nเพิ่ม role, full_name\nลงใน JWT claims
+    Serial -> Serial : สร้าง access token\n+ refresh token
+    Serial --> View : {access, refresh, role, user{...}}
+    deactivate Serial
+
+    View --> Axios : 200 OK\n{access, refresh, role, user{...}}
+    deactivate View
+
+    Axios --> Page : response data
+    deactivate Axios
+
+    Page -> Page : localStorage.setItem()\nbันทึก access, refresh,\nrole, user
+
+    Page -> Router : redirect ตาม role
+    activate Router
+    alt [role == "admin"]
+        Router --> User : เปลี่ยนหน้าไป /admin/dashboard
+    else [role == "user"]
+        Router --> User : เปลี่ยนหน้าไป /
+    end
+    deactivate Router
+end
+
+deactivate Page
+
+@enduml

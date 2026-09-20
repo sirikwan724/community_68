@@ -1,0 +1,66 @@
+@startuml
+scale 2
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam BoxPadding 12
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+
+title Flow 8A — User ดูรายละเอียดข่าวสาร
+
+actor "ผู้ใช้งาน\n(User)" as User
+
+box "Frontend (Vue)" #EBF5FB
+    participant "NewsDetail\n.vue" as Page
+end box
+
+box "Backend (Django REST Framework)" #EAF7EA
+    participant "accounts\n_urls.py" as URLs
+    participant "NewsViewSet\n(views.py)" as View
+    participant "News\n(models.py)" as Model
+end box
+
+database "Database\n(PostgreSQL)" as DB
+
+== โหลดรายละเอียดข่าวสาร (onMounted) ==
+
+User -> Page : เข้าหน้ารายละเอียดข่าวสาร
+activate Page
+Page -> Page : onMounted()\nid = route.params.id
+
+Page -> URLs : axios.get(\n"/api/accounts/news/{id}/")
+activate URLs
+URLs -> View : router.urls → news/{pk}/\n→ NewsViewSet.retrieve()
+deactivate URLs
+activate View
+
+View -> View : get_permissions()\n→ SAFE_METHODS → AllowAny\n(ไม่ต้องล็อกอิน)
+
+View -> Model : News.objects.get(pk=pk)
+activate Model
+Model -> DB : SELECT * FROM accounts_news\nWHERE id = ?
+activate DB
+DB --> Model : news object
+deactivate DB
+Model --> View : news
+deactivate Model
+
+alt [200 OK — พบข่าวสาร]
+    View --> Page : 200 OK\n{id, title, content,\nimage, created_at, author}
+    deactivate View
+
+    Page -> Page : news.value = res.data\nformatThaiDate(created_at)
+    Page --> User : แสดงรูปภาพ, หัวข้อ,\nวันที่เผยแพร่ (ภาษาไทย),\nเนื้อหาข่าวสาร
+
+else [error — ไม่พบข่าว]
+    View --> Page : 404 Not Found
+    deactivate View
+    Page --> User : (หน้าว่าง / error)
+end
+
+deactivate Page
+
+@enduml

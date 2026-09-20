@@ -10,6 +10,7 @@ const reportChart = ref(null);
 const requestChart = ref(null);
 const borrowItemChart = ref(null);
 const borrowLocationChart = ref(null);
+const appointmentChart = ref(null);
 
 const selectedYear = ref(new Date().getFullYear());
 const availableYears = ref([2024, 2025, 2026]);
@@ -19,11 +20,12 @@ let chart1Instance;
 let chart2Instance;
 let chart3Instance;
 let chart4Instance;
+let chart5Instance;
 
 const loadYears = async () => {
   const token = getToken();
   const res = await axios.get(
-    "http://localhost:8000/api/reports/admin/available-years/",
+    "/api/reports/admin/available-years/",
     { headers: { Authorization: `Bearer ${token}` } }
   );
 
@@ -40,17 +42,17 @@ const loadStats = async () => {
 
     const [resReport, resBorrowItems, resBorrowLocations] = await Promise.all([
       axios.get(
-        `http://localhost:8000/api/reports/admin/stats/?year=${year}`,
+        `/api/reports/admin/stats/?year=${year}`,
         { headers: { Authorization: `Bearer ${token}` } }
       ),
 
       axios.get(
-        `http://localhost:8000/api/borrow/admin/stats/borrow-items/?year=${year}`,
+        `/api/borrow/admin/stats/borrow-items/?year=${year}`,
         { headers: { Authorization: `Bearer ${token}` } }
       ),
 
       axios.get(
-        `http://localhost:8000/api/borrow/admin/stats/borrow-locations/?year=${year}`,
+        `/api/borrow/admin/stats/borrow-locations/?year=${year}`,
         { headers: { Authorization: `Bearer ${token}` } }
       ),
     ]);
@@ -59,6 +61,7 @@ const loadStats = async () => {
     createRequestChart(resReport.data.requests_by_type || {});
     createBorrowItemChart(resBorrowItems.data || {});
     createBorrowLocationChart(resBorrowLocations.data || {});
+    createAppointmentChart(resReport.data.appointments_by_meet_with || {});
   } catch (err) {
     console.error("loadStats error:", err);
   }
@@ -99,7 +102,7 @@ const createReportChart = (data) => {
 };
 
 // -------------------------
-// 2) Bar: คำขอความอนุเคราะห์
+// Bar: คำขอความอนุเคราะห์
 // -------------------------
 const createRequestChart = (data) => {
   if (chart2Instance) chart2Instance.destroy();
@@ -115,6 +118,7 @@ const createRequestChart = (data) => {
         {
           label: "จำนวนคำขอทั้งหมด",
           data: Object.values(data),
+          backgroundColor: ["#4CAF50", "#2196F3", "#FF9800", "#E91E63", "#9C27B0"],
         },
       ],
     },
@@ -127,8 +131,7 @@ const createRequestChart = (data) => {
 };
 
 // -------------------------
-// 3) Bar: ยืมสิ่งของ (approved)
-// data = {"เก้าอี้": 10, "โต๊ะ": 5}
+// Bar: ยืมสิ่งของ (approved)
 // -------------------------
 const createBorrowItemChart = (data) => {
   if (chart3Instance) chart3Instance.destroy();
@@ -147,6 +150,11 @@ const createBorrowItemChart = (data) => {
         {
           label: "จำนวนที่ยืม (อนุมัติแล้ว)",
           data: values,
+          backgroundColor: [
+            "#4CAF50", "#2196F3", "#FF9800", "#E91E63",
+            "#9C27B0", "#00BCD4", "#FF5722", "#8BC34A",
+            "#FFC107", "#3F51B5",
+          ],
         },
       ],
     },
@@ -159,7 +167,49 @@ const createBorrowItemChart = (data) => {
 };
 
 // -------------------------
-// 4) Doughnut: จองสถานที่ (approved)
+// Bar: นัดหมาย (approved)
+// -------------------------
+const createAppointmentChart = (data) => {
+  if (chart5Instance) chart5Instance.destroy();
+  if (!appointmentChart.value) return;
+
+  const LABELS = {
+    headman: "ผู้ใหญ่บ้าน",
+    assistant_headman: "ผู้ช่วยผู้ใหญ่บ้าน",
+  };
+
+  const labels = Object.keys(data).map((k) => LABELS[k] || k);
+  const values = Object.values(data);
+
+  const ctx = appointmentChart.value.getContext("2d");
+
+  chart5Instance = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "จำนวนนัดหมาย",
+          data: values,
+          backgroundColor: ["#FF9800", "#2196F3"],
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+      plugins: {
+        legend: {
+          labels: { font: { size: 14, family: "Prompt" } },
+        },
+      },
+    },
+  });
+};
+
+// -------------------------
+// Doughnut: จองสถานที่ (approved)
 // data = {"ศาลาประชาคม": 3, "สนามกีฬา": 1}
 // -------------------------
 const createBorrowLocationChart = (data) => {
@@ -191,13 +241,17 @@ const createBorrowLocationChart = (data) => {
   });
 };
 
-onMounted(loadStats);
+onMounted(async () => {
+  await loadYears();
+  loadStats();
+});
 
 onBeforeUnmount(() => {
   if (chart1Instance) chart1Instance.destroy();
   if (chart2Instance) chart2Instance.destroy();
   if (chart3Instance) chart3Instance.destroy();
   if (chart4Instance) chart4Instance.destroy();
+  if (chart5Instance) chart5Instance.destroy();
 });
 
 watch(selectedYear, () => {
@@ -243,19 +297,26 @@ watch(selectedYear, () => {
       </div>
     </div>
 
-    <!-- ✅ ยืมสิ่งของ (approved) -->
+    <!-- ยืมสิ่งของ (approved) -->
     <div class="bg-white shadow rounded p-4">
-      <h2 class="text-xl font-bold mb-4">สถิติการยืมสิ่งของ (อนุมัติแล้ว)</h2>
+      <h2 class="text-xl font-bold mb-4">สถิติการยืมสิ่งของ</h2>
       <div class="h-[420px] relative">
         <canvas ref="borrowItemChart"></canvas>
       </div>
     </div>
 
-    <!-- ✅ จองสถานที่ (approved) -->
+    <!-- จองสถานที่ (approved) -->
     <div class="bg-white shadow rounded p-4">
-      <h2 class="text-xl font-bold mb-4">สถิติการจองสถานที่ (อนุมัติแล้ว)</h2>
+      <h2 class="text-xl font-bold mb-4">สถิติการจองสถานที่</h2>
       <div class="h-[420px] relative">
         <canvas ref="borrowLocationChart"></canvas>
+      </div>
+    </div>
+    <!-- นัดหมาย (approved) -->
+    <div class="bg-white shadow rounded p-4">
+      <h2 class="text-xl font-bold mb-4">สถิติการนัดหมาย</h2>
+      <div class="h-[360px] relative">
+        <canvas ref="appointmentChart"></canvas>
       </div>
     </div>
   </div>

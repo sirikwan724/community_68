@@ -100,7 +100,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 class NewsSerializer(serializers.ModelSerializer):
-    # แปลงวันที่เป็นรูปแบบที่อ่านง่าย (เช่น 18 ม.ค. 2568)
     created_at_formatted = serializers.DateTimeField(source='created_at', format="%d/%m/%Y", read_only=True)
     
     class Meta:

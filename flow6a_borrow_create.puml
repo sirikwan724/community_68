@@ -1,0 +1,155 @@
+@startuml
+scale 2
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam BoxPadding 12
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+
+title Flow 6A — User สร้างคำขอยืม/จอง
+
+actor "ผู้ใช้งาน\n(User)" as User
+
+box "Frontend (Vue)" #EBF5FB
+    participant "BorrowForm\n.vue" as Page
+    participant "BorrowService\n(borrow.service.js)" as Service
+end box
+
+box "Backend (Django REST Framework)" #EAF7EA
+    participant "borrow\n_urls.py" as URLs
+    participant "ItemListView /\nLocationListView /\nCreateBorrowRequestView\n(views.py)" as View
+    participant "BorrowRequest\n(models.py)" as Model
+end box
+
+database "Database\n(PostgreSQL)" as DB
+
+== โหลดข้อมูลเบื้องต้น (onMounted) ==
+
+User -> Page : เข้าหน้าฟอร์มยืม/จอง
+activate Page
+Page -> Page : onMounted()
+
+Page -> Service : api.get("/borrow/items/")
+activate Service
+Service -> URLs : GET /borrow/items/
+activate URLs
+URLs -> View : route /items/\n→ ItemListView.get()
+deactivate URLs
+activate View
+View -> DB : SELECT * FROM borrow_item
+activate DB
+DB --> View : list of items
+deactivate DB
+View --> Service : 200 OK [{id, name, stock,...}]
+deactivate View
+Service --> Page : res.data
+deactivate Service
+Page -> Page : items = res.data
+
+Page -> Service : api.get("/borrow/locations/")
+activate Service
+Service -> URLs : GET /borrow/locations/
+activate URLs
+URLs -> View : route /locations/\n→ LocationListView.get()
+deactivate URLs
+activate View
+View -> DB : SELECT * FROM borrow_location
+activate DB
+DB --> View : list of locations
+deactivate DB
+View --> Service : 200 OK [{id, name,...}]
+deactivate View
+Service --> Page : res.data
+deactivate Service
+Page -> Page : locations = res.data
+Page --> User : แสดงฟอร์มพร้อมตัวเลือก
+
+== watch: start/end datetime เปลี่ยน ==
+
+User -> Page : เลือก start_datetime\nหรือ end_datetime
+Page -> Page : watch([start_datetime,\nend_datetime])\n→ โหลดสถานที่ใหม่
+Page -> Service : api.get("/borrow/locations/",\n{params: {start, end}})
+activate Service
+Service -> URLs : GET /borrow/locations/?start=...&end=...
+activate URLs
+URLs -> View : LocationListView.get()\nกรองตามช่วงเวลา
+deactivate URLs
+activate View
+View -> DB : SELECT ตาม availability
+activate DB
+DB --> View : filtered locations
+deactivate DB
+View --> Service : 200 OK [available locations]
+deactivate View
+Service --> Page : res.data
+deactivate Service
+Page -> Page : locations = res.data
+
+== User กรอกข้อมูลและส่งคำขอ ==
+
+User -> Page : กรอกข้อมูลครบและกดปุ่ม\n"ยืนยันการขอยืม"
+Page -> Page : submit()\nตรวจสอบ Client-side:\n- borrow_type / items หรือ location\n- start/end/pickup/\nexpected_return ต้องไม่ว่าง
+
+opt [ไม่ผ่าน Client-side]
+    Page --> User : alert ข้อความ error
+end
+
+Page -> Page : สร้าง payload:\n{borrow_type, items[],\nlocation, start_datetime,\nend_datetime, pickup_datetime,\nexpected_return_datetime, purpose}
+
+Page -> Service : BorrowService.createRequest(payload)
+activate Service
+Service -> URLs : POST /borrow/requests/
+activate URLs
+URLs -> View : route /requests/\n→ CreateBorrowRequestView.post()
+deactivate URLs
+activate View
+
+View -> View : serializer.is_valid()\n→ ผิด → 400
+
+View -> Model : serializer.save(\nuser=request.user)
+activate Model
+Model -> DB : INSERT INTO borrow_borrowrequest\n(user, borrow_type,\nstatus="pending",...)
+activate DB
+DB --> Model : request.id
+deactivate DB
+Model --> View : borrow_request
+deactivate Model
+
+View -> View : perform_create()\nตรวจสอบ conflict/stock
+
+alt [borrow_type="LOCATION": มี conflict]
+    View -> DB : SELECT * FROM borrow_borrowrequest\nWHERE location=? AND status IN\n("pending","approved")\nAND datetime overlap
+    activate DB
+    DB --> View : conflict rows
+    deactivate DB
+    View --> Service : 400\n"สถานที่ไม่ว่าง"
+    deactivate View
+    Service --> Page : error
+    deactivate Service
+    Page --> User : alert error
+else [borrow_type="ITEM": stock ไม่พอ]
+    View -> DB : SELECT stock FROM borrow_item\nWHERE id IN items
+    activate DB
+    DB --> View : stock values
+    deactivate DB
+    View --> Service : 400\n"สินค้าไม่เพียงพอ"
+    deactivate View
+    Service --> Page : error
+    deactivate Service
+    Page --> User : alert error
+else [ผ่านการตรวจสอบทั้งหมด]
+    View --> Service : 201 Created\n{id, borrow_type,\nstatus="pending",...}
+    deactivate View
+    Service --> Page : res
+    deactivate Service
+    Page --> User : alert "ส่งคำขอสำเร็จ"
+    Page -> Page : router.push(\n{path:"/my-history",\nquery:{tab:"borrows"}})
+    Page --> User : redirect ไปหน้าประวัติ\n(แท็บ borrows)
+end
+
+deactivate Page
+
+@enduml

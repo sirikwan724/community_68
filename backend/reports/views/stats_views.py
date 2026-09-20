@@ -15,7 +15,6 @@ def admin_stats(request):
         return Response({"detail": "ไม่มีสิทธิ์"}, status=403)
 
     year = request.GET.get("year")
-    print("YEAR RECEIVED:", year)
 
     # -------------------------
     # REPORTS
@@ -83,11 +82,37 @@ def available_years(request):
     if request.user.role != "admin":
         return Response({"detail": "ไม่มีสิทธิ์"}, status=403)
 
-    years = (
+    from borrow.models import BorrowRequest
+
+    report_years = (
         Report.objects
         .annotate(year=ExtractYear("created_at"))
         .values_list("year", flat=True)
         .distinct()
     )
 
-    return Response(sorted(years, reverse=True))
+    request_years = (
+        RequestHelp.objects
+        .annotate(year=ExtractYear("created_at"))
+        .values_list("year", flat=True)
+        .distinct()
+    )
+
+    appointment_years = (
+        Appointment.objects
+        .annotate(year=ExtractYear("created_at"))
+        .values_list("year", flat=True)
+        .distinct()
+    )
+
+    borrow_years = (
+        BorrowRequest.objects
+        .annotate(year=ExtractYear("created_at"))
+        .values_list("year", flat=True)
+        .distinct()
+    )
+
+    all_years = set(report_years) | set(request_years) | set(appointment_years) | set(borrow_years)
+    all_years.discard(None)
+
+    return Response(sorted(all_years, reverse=True))

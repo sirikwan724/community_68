@@ -1,0 +1,83 @@
+@startuml
+scale 2
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam BoxPadding 12
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+
+title Flow 4A — User ส่งคำขอความอนุเคราะห์
+
+actor "ผู้ใช้งาน\n(User)" as User
+
+box "Frontend (Vue)" #EBF5FB
+    participant "RequestHelpForm\n.vue" as Page
+    participant "router\n/index.js" as Router
+end box
+
+box "Backend (Django REST Framework)" #EAF7EA
+    participant "reports\n/urls.py" as URLs
+    participant "create_request_help\n(views.py)" as View
+    participant "RequestHelp\nSerializer\n(serializers.py)" as Serial
+    participant "RequestHelp\n(models.py)" as HelpModel
+end box
+
+database "Database\n(PostgreSQL)" as DB
+
+== User กรอกแบบฟอร์มและส่งคำขอ ==
+
+User -> Page : กรอกข้อมูลและกดปุ่ม\n"ส่งคำขอ"
+activate Page
+
+Page -> Page : submitForm()\nสร้าง start_datetime\nจาก start_date + start_time\nสร้าง end_datetime\nจาก end_date + end_time
+
+Page -> Page : สร้าง FormData\nrequest_type (หรือ custom_type)\nstart_datetime, end_datetime\narea, detail\nfile (ถ้ามี)
+
+Page -> URLs : axios.post(\n"/api/reports/help/create/",\nformData,\n{headers: {Authorization: Bearer token,\nContent-Type: multipart/form-data}})
+activate URLs
+
+URLs -> View : route /help/create/\n→ create_request_help(request)
+deactivate URLs
+activate View
+
+View -> View : data = request.data.copy()\ndata["user"] = request.user.id
+
+View -> Serial : RequestHelpSerializer(data=data)
+activate Serial
+
+Serial -> Serial : is_valid()
+
+alt [ข้อมูลไม่ผ่าน validation]
+    Serial --> View : errors
+    View --> Page : 400 Bad Request\n{errors}
+    Page --> User : alert\n"เกิดข้อผิดพลาด กรุณาลองใหม่"
+else [ข้อมูลผ่านทั้งหมด]
+    Serial -> HelpModel : serializer.save(\nuser=request.user)
+    activate HelpModel
+    HelpModel -> DB : INSERT INTO reports_requesthelp\n(user_id, request_type,\nstart_datetime, end_datetime,\narea, detail, file,\nstatus="pending")
+    activate DB
+    DB --> HelpModel : help.id
+    deactivate DB
+    HelpModel --> Serial : help object
+    deactivate HelpModel
+
+    Serial --> View : serializer.data
+    deactivate Serial
+
+    View --> Page : 201 Created\n{id, request_type, status="pending",...}
+    deactivate View
+
+    Page --> User : alert "ส่งคำขอสำเร็จ"
+
+    Page -> Router : router.push(\n"/my-history?tab=requests")
+    activate Router
+    Router --> User : redirect ไปหน้าประวัติ\n(แท็บ requests)
+    deactivate Router
+end
+
+deactivate Page
+
+@enduml

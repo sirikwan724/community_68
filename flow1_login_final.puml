@@ -1,0 +1,109 @@
+@startuml
+scale 2.5
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam BoxPadding 12
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+skinparam sequenceGroupBorderThickness 1.5
+
+title Flow 1 — User Login
+
+actor "ผู้ใช้งาน\n(User)" as User
+
+box "Frontend (Vue)" #EBF5FB
+    participant "LoginPage\n.vue" as Page
+    participant "router\n/index.js" as Router
+end box
+
+box "Backend (Django REST Framework)" #EAF7EA
+    participant "accounts\n/urls.py" as URLs
+    participant "MyTokenObtain\nPairView\n(views.py)" as View
+    participant "MyTokenObtain\nPairSerializer\n(serializers.py)" as Serial
+    participant "django\n.contrib.auth" as Auth
+    participant "User\n(models.py)" as Model
+end box
+
+database "Database\n(PostgreSQL)" as DB
+
+== Login ==
+
+User -> Page : กรอก username + password\nกดปุ่ม "เข้าสู่ระบบ"
+activate Page
+
+Page -> Page : handleLogin()\nเคลียร์ errorMessage
+
+opt [username หรือ password ว่างเปล่า]
+    Page -> Page : !username.trim()\n|| !password.trim()
+    Page --> User : แสดง error\n"กรุณากรอกข้อมูลให้ครบถ้วน"
+end
+
+Page -> URLs : axios.post(\n"localhost:8000/api/accounts/login/",\n{username, password})
+activate URLs
+
+URLs -> View : route /login/\n→ MyTokenObtainPairView.as_view()
+deactivate URLs
+activate View
+
+View -> Serial : serializer.validate(\n{username, password})
+activate Serial
+
+Serial -> Auth : super().validate(attrs)\n→ authenticate(username, password)
+activate Auth
+
+Auth -> Model : User.objects.get(\nusername=username)
+activate Model
+
+Model -> DB : SELECT * FROM accounts_user\nWHERE username = ?
+activate DB
+DB --> Model : user record
+deactivate DB
+
+Model --> Auth : user object
+deactivate Model
+
+alt [ไม่พบ user หรือ password ไม่ตรง]
+    Auth --> Serial : return None\n(authentication failed)
+    deactivate Auth
+    Serial --> View : raise AuthenticationFailed
+    deactivate Serial
+    View --> Page : 401 Unauthorized\n{"detail": "No active account\nfound with the given credentials"}
+    deactivate View
+    Page --> User : แสดง error\n"ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง"
+
+else [พบ user และ password ถูกต้อง]
+    Auth --> Serial : user object
+    deactivate Auth
+
+    Serial -> Serial : get_token(user)\n→ super().get_token(user)\n→ เพิ่ม token['role']\n→ เพิ่ม token['full_name']
+
+    Serial -> Serial : data.update({\nrole: user.role,\nuser: {id, username,\nfull_name, phone,\naddress, citizen_id,\nhouse_owner_name, role}\n})
+
+    Serial --> View : {access, refresh,\nrole, user{...}}
+    deactivate Serial
+
+    View --> Page : 200 OK\n{access, refresh, role, user{...}}
+    deactivate View
+
+    Page -> Page : localStorage.setItem("access")\nlocalStorage.setItem("refresh")\nlocalStorage.setItem("role")\nlocalStorage.setItem("user")
+
+    Page -> Router : router.push(\nตาม role)
+    activate Router
+
+    Router -> Router : beforeEach(to, from, next)\nตรวจ localStorage.access\nตรวจ role
+
+    alt [role === "admin"]
+        Router --> User : redirect ไป\n/admin/dashboard
+    else [role !== "admin"]
+        Router --> User : redirect ไป /
+    end
+
+    deactivate Router
+end
+
+deactivate Page
+
+@enduml

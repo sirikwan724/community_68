@@ -313,11 +313,12 @@ class AdminBorrowLocationStatsView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request):
+        SUCCESS_STATUSES = ['approved', 'returned', 'return_requested', 'borrowed']
         year = request.GET.get("year")
 
         qs = BorrowRequest.objects.filter(
             borrow_type='LOCATION',
-            status='approved'
+            status__in=SUCCESS_STATUSES
         )
 
         if year:

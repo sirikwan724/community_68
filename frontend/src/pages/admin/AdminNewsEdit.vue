@@ -7,7 +7,7 @@ const route = useRoute(); // เพื่อดึงค่า id จาก URL
 const router = useRouter();
 const newsId = ref(route.params.id); // ID ของข่าวสารที่ต้องการแก้ไข
 
-// ⭐ ตัวแปรสำหรับเก็บข้อมูลฟอร์ม
+// ตัวแปรสำหรับเก็บข้อมูลฟอร์ม
 const title = ref("");
 const content = ref("");
 const existingImageUrl = ref(""); // URL รูปภาพเดิม
@@ -17,7 +17,7 @@ const isFetching = ref(true); // สถานะกำลังดึงข้�
 const error = ref("");
 const successMessage = ref("");
 
-// ⭐ ฟังก์ชันย้อนกลับไปยังหน้าก่อนหน้า (AdminNewsList)
+// ฟังก์ชันย้อนกลับไปยังหน้าก่อนหน้า (AdminNewsList)
 const goBack = () => {
     // router.back() จะย้อนไปหน้าล่าสุดใน history
     // หากต้องการย้อนกลับไปหน้าจัดการข่าวสารโดยตรง (เช่น /admin/news)
@@ -25,7 +25,7 @@ const goBack = () => {
     router.back(); 
 };
 
-// ⭐ 1. ฟังก์ชันดึงข้อมูลข่าวสารเดิม
+// ฟังก์ชันดึงข้อมูลข่าวสารเดิม
 const fetchNewsData = async () => {
     isFetching.value = true;
     error.value = '';
@@ -46,12 +46,12 @@ const fetchNewsData = async () => {
     }
 };
 
-// ⭐ 2. ฟังก์ชันจัดการไฟล์รูปภาพ
+// ฟังก์ชันจัดการไฟล์รูปภาพ
 const handleImageUpload = (event) => {
     imageFile.value = event.target.files[0];
 };
 
-// ⭐ 3. ฟังก์ชันส่งฟอร์มเพื่ออัปเดต (ใช้ PUT/PATCH)
+// ฟังก์ชันส่งฟอร์มเพื่ออัปเดต (ใช้ PUT/PATCH)
 const updateNews = async () => {
     if (!title.value || !content.value) {
         error.value = 'กรุณาใส่หัวข้อและเนื้อหาข่าวให้ครบถ้วน';
@@ -62,11 +62,11 @@ const updateNews = async () => {
     formData.append('title', title.value);
     formData.append('content', content.value);
     
-    // 💡 ถ้ามีการเลือกรูปภาพใหม่ ให้แนบไฟล์ไปด้วย
+    // ถ้ามีการเลือกรูปภาพใหม่ ให้แนบไฟล์ไปด้วย
     if (imageFile.value) {
         formData.append('image', imageFile.value);
     }
-    // 💡 ถ้าไม่ได้เลือกไฟล์ใหม่ ไม่ต้องแนบ image ไป (ใช้รูปเดิม)
+    // ถ้าไม่ได้เลือกไฟล์ใหม่ ไม่ต้องแนบ image ไป (ใช้รูปเดิม)
 
     const token = localStorage.getItem('access');
     if (!token) {
@@ -80,7 +80,7 @@ const updateNews = async () => {
 
     try {
         const response = await axios.patch(
-            // ⭐ URL ถูกต้องแล้ว: มีสแลชปิดท้าย
+            //URL ถูกต้องแล้ว: มีสแลชปิดท้าย
             `http://localhost:8000/api/accounts/news/${newsId.value}/`, 
             formData,
             {

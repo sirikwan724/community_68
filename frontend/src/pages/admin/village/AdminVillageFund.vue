@@ -44,7 +44,7 @@ const handleFileChange = (e) => {
 ========================= */
 const loadFundTypes = async () => {
   try {
-    const res = await api.get("/village/funds/");
+    const res = await api.get("/admin/funds/");
     fundTypes.value = res.data;
   } catch {
     error.value = "ไม่สามารถโหลดประเภทกองทุนได้";
@@ -192,6 +192,23 @@ onMounted(loadFundTypes);
         </button>
       </div>
     </section>
+    <div v-if="selectedFund" class="mt-4">
+      <h3 class="font-medium mb-2">ปีที่มีข้อมูล ({{ selectedFund.name }})</h3>
+      <select
+        v-model="selectedRecord"
+        class="border px-3 py-2 rounded w-52"
+      >
+        <option disabled :value="null">-- เลือกปีงบประมาณกองทุน --</option>
+
+        <option
+          v-for="r in fundRecords"
+          :key="r.id"
+          :value="r"
+        >
+          {{ r.year }}
+        </option>
+      </select>
+    </div>
 
     <!-- =========================
          FUND RECORDS
@@ -219,23 +236,6 @@ onMounted(loadFundTypes);
         >
           เพิ่มปี
         </button>
-      </div>
-
-      <div class="mb-4">
-        <select
-          v-model="selectedRecord"
-          class="border px-3 py-2 rounded w-40"
-        >
-          <option disabled value="">-- เลือกปีงบประมาณ --</option>
-
-          <option
-            v-for="r in fundRecords"
-            :key="r.id"
-            :value="r"
-          >
-            {{ r.year }}
-          </option>
-        </select>
       </div>
     </section>
 

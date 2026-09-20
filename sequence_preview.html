@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sequence Diagrams – COMMU</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { font-family: 'Sarabun', sans-serif; background: #f5f7fa; margin: 0; padding: 24px; }
+    h1 { color: #1a237e; text-align: center; margin-bottom: 8px; }
+    .subtitle { text-align:center; color:#555; margin-bottom:32px; font-size:15px; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 2px 12px #0001; padding: 28px 32px; margin-bottom: 40px; }
+    .card h2 { color: #283593; border-left: 5px solid #3f51b5; padding-left: 12px; margin-top: 0; }
+    .info-box { background: #e8eaf6; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 14px; }
+    .info-box b { color: #283593; }
+    .symbols { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+    .sym { background: #f3f4f8; border: 1px solid #c5cae9; border-radius: 6px; padding: 6px 14px; font-size: 13px; color: #3949ab; }
+    .mermaid { overflow-x: auto; }
+  </style>
+</head>
+<body>
+<h1>📊 Sequence Diagrams — ระบบ COMMU</h1>
+<p class="subtitle">แสดงการโต้ตอบระหว่าง Actor / Frontend / Backend / Database</p>
+
+<!-- Flow 1 -->
+<div class="card">
+  <h2>Flow 1 — User Login</h2>
+  <div class="info-box">
+    <b>ข้อมูลที่วิ่งในระบบ:</b><br>
+    📤 ส่งไป: <code>username, password</code><br>
+    📥 รับกลับ: <code>access_token, refresh_token, role, user{id, full_name, phone, ...}</code>
+  </div>
+  <div class="symbols">
+    <span class="sym">👤 Actor (User)</span>
+    <span class="sym">── Lifeline</span>
+    <span class="sym">→ Message (Data:Function)</span>
+    <span class="sym">⇠- Return Message</span>
+    <span class="sym">alt ถ้า-อื่น</span>
+    <span class="sym">⊕ Self call</span>
+  </div>
+  <div class="mermaid">
+sequenceDiagram
+    actor User as 👤 User
+    participant FE as Frontend
+    participant API as Backend API
+    participant DB as Database
+
+    User->>FE: กรอก username + password
+    FE->>API: POST /api/accounts/login/
+    Note right of API: {username, password}
+
+    API->>DB: SELECT user WHERE username=?
+    DB-->>API: user record
+
+    alt credentials ถูกต้อง
+        API->>API: ตรวจสอบ password hash
+        API->>API: สร้าง JWT token (role, full_name)
+        API-->>FE: 200 OK — {access, refresh, role, user{...}}
+        FE->>FE: บันทึก token ใน localStorage
+        FE-->>User: เปลี่ยนหน้าไป Dashboard
+    else credentials ผิด
+        API-->>FE: 401 Unauthorized
+        FE-->>User: แสดง error "ข้อมูลไม่ถูกต้อง"
+    end
+  </div>
+</div>
+
+<!-- Flow 2 -->
+<div class="card">
+  <h2>Flow 2 — Register Request + Admin Approve/Reject</h2>
+  <div class="info-box">
+    <b>ข้อมูลที่วิ่งในระบบ:</b><br>
+    📤 ส่งไป: <code>username, full_name, phone, address, citizen_id, house_owner_name, password, prefix?, birth_date?</code><br>
+    ✅ Validate: username ซ้ำ? | อายุ 18 ปีขึ้นไป?<br>
+    📥 Approve: สร้าง User จริงใน DB | Reject: เปลี่ยน status เป็น "rejected"
+  </div>
+  <div class="symbols">
+    <span class="sym">👤 Actor (User)</span>
+    <span class="sym">🛡️ Actor (Admin)</span>
+    <span class="sym">alt ถ้า-อื่น</span>
+    <span class="sym">→ Message</span>
+    <span class="sym">⇠- Return Message</span>
+    <span class="sym">⊕ Self call</span>
+  </div>
+  <div class="mermaid">
+sequenceDiagram
+    actor User as 👤 User
+    actor Admin as 🛡️ Admin
+    participant FE as Frontend
+    participant API as Backend API
+    participant DB as Database
+
+    User->>FE: กรอกฟอร์มสมัคร
+    Note right of FE: username, full_name, phone,\naddress, citizen_id, password ...
+    FE->>API: POST /api/accounts/register-request/
+
+    API->>DB: ตรวจ username ซ้ำ?
+    DB-->>API: result
+
+    alt username ซ้ำ
+        API-->>FE: 400 — ชื่อผู้ใช้งานนี้ถูกใช้แล้ว
+        FE-->>User: แสดง error
+    else อายุ น้อยกว่า 18 ปี
+        API-->>FE: 400 — ผู้สมัครต้องมีอายุ 18 ปีขึ้นไป
+        FE-->>User: แสดง error
+    else ข้อมูลถูกต้อง
+        API->>API: hash password
+        API->>DB: INSERT RegistrationRequest (status=pending)
+        DB-->>API: saved
+        API-->>FE: 201 — ส่งคำขอสมัครสำเร็จ รอผู้ใหญ่บ้านอนุมัติ
+        FE-->>User: แสดงข้อความรอการอนุมัติ
+    end
+
+    Admin->>FE: เข้าหน้า /admin/users/approve
+    FE->>API: GET /api/accounts/admin/requests/
+    API->>DB: SELECT RegistrationRequest WHERE status=pending
+    DB-->>API: list of requests
+    API-->>FE: รายการคำขอ
+    FE-->>Admin: แสดงรายการรอการอนุมัติ
+
+    alt Admin อนุมัติ
+        Admin->>FE: กดปุ่ม อนุมัติ
+        FE->>API: POST /admin/requests/{id}/approve/
+        API->>DB: BEGIN TRANSACTION
+        API->>DB: INSERT User (role=user, verified=true)
+        API->>DB: UPDATE RegistrationRequest status=approved
+        DB-->>API: COMMIT success
+        API-->>FE: 200 — อนุมัติสำเร็จ และสร้างบัญชีผู้ใช้แล้ว
+        FE-->>Admin: แสดงผลสำเร็จ
+    else Admin ปฏิเสธ
+        Admin->>FE: กดปุ่ม ปฏิเสธ
+        FE->>API: POST /admin/requests/{id}/reject/
+        API->>DB: UPDATE RegistrationRequest status=rejected
+        DB-->>API: success
+        API-->>FE: 200 — ปฏิเสธสำเร็จ
+        FE-->>Admin: แสดงผลสำเร็จ
+    end
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'default', sequence: { actorMargin: 80, messageMargin: 40, diagramMarginX: 20, diagramMarginY: 20 } });
+</script>
+</body>
+</html>

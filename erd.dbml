@@ -1,0 +1,332 @@
+// ============================================================
+// ERD - ระบบ commu (Community Management System)
+// วางไฟล์นี้ที่ https://dbdiagram.io เพื่อดูแผนภาพ
+// ============================================================
+
+// ─────────────────────────────────────────
+// ACCOUNTS APP
+// ─────────────────────────────────────────
+
+Table User {
+  id         int         [pk, increment]
+  username   string      [not null, unique]
+  password   string      [not null]
+  email      string
+  full_name  string
+  address    text
+  citizen_id string
+  house_owner_name string
+  phone      string
+  prefix     string
+  birth_date date
+  role       string      [note: 'guest | user | admin | superadmin']
+  verified   boolean
+
+  note: 'ผู้ใช้งานระบบ (extends AbstractUser)'
+}
+
+Table Profile {
+  id           int    [pk, increment]
+  user_id      int    [ref: - User.id, not null]
+  full_name    string
+  phone_number string
+
+  note: 'ข้อมูลโปรไฟล์เสริม (OneToOne กับ User)'
+}
+
+Table RegistrationRequest {
+  id               int      [pk, increment]
+  username         string
+  full_name        string
+  phone            string
+  address          text
+  citizen_id       string
+  house_owner_name string
+  prefix           string
+  birth_date       date
+  password         string
+  status           string   [note: 'pending | approved | rejected']
+  created_at       datetime
+
+  note: 'คำขอสมัครสมาชิก รอ admin อนุมัติ'
+}
+
+Table News {
+  id         int      [pk, increment]
+  author_id  int      [ref: > User.id]
+  title      string
+  content    text
+  image      string
+  created_at datetime
+  updated_at datetime
+
+  note: 'ข่าวสารหมู่บ้าน'
+}
+
+Table HeadmanStatus {
+  id         int      [pk, increment]
+  is_online  boolean
+  updated_at datetime
+
+  note: 'สถานะออนไลน์ของผู้ใหญ่บ้าน'
+}
+
+// ─────────────────────────────────────────
+// BORROW APP
+// ─────────────────────────────────────────
+
+Table Location {
+  id        int     [pk, increment]
+  name      string
+  is_active boolean
+
+  note: 'สถานที่ที่ให้ยืมได้'
+}
+
+Table Item {
+  id        int     [pk, increment]
+  name      string
+  unit      string
+  stock     int
+  is_active boolean
+
+  note: 'ครุภัณฑ์/อุปกรณ์ที่ให้ยืมได้'
+}
+
+Table BorrowRequest {
+  id                       int      [pk, increment]
+  user_id                  int      [ref: > User.id, not null]
+  location_id              int      [ref: > Location.id, null]
+  borrower_name            string
+  borrower_phone           string
+  borrow_type              string   [note: 'ITEM | LOCATION']
+  start_datetime           datetime
+  end_datetime             datetime
+  pickup_datetime          datetime
+  expected_return_datetime datetime
+  purpose                  text
+  image                    string
+  status                   string   [note: 'pending | approved | rejected | returned | canceled']
+  admin_note               text
+  created_at               datetime
+
+  note: 'คำขอยืมสถานที่หรืออุปกรณ์'
+}
+
+Table BorrowItem {
+  id               int [pk, increment]
+  borrow_request_id int [ref: > BorrowRequest.id, not null]
+  item_id          int [ref: > Item.id, not null]
+  quantity         int
+
+  note: 'รายการอุปกรณ์ในคำขอยืม (junction table)'
+}
+
+// ─────────────────────────────────────────
+// PUBLIC SERVICE APP
+// ─────────────────────────────────────────
+
+Table PublicService {
+  id          int      [pk, increment]
+  name        string
+  category    string   [note: 'water | washer | other']
+  location    string
+  description text
+  status      string   [note: 'normal | maintenance | broken']
+  image       string
+  created_at  datetime
+
+  note: 'สาธารณูปโภคในหมู่บ้าน'
+}
+
+Table PublicServiceReport {
+  id          int      [pk, increment]
+  service_id  int      [ref: > PublicService.id, not null]
+  user_id     int      [ref: > User.id, not null]
+  title       string
+  description text
+  image       string
+  status      string   [note: 'pending | processing | resolved | canceled']
+  created_at  datetime
+
+  note: 'รายงานปัญหาสาธารณูปโภค'
+}
+
+// ─────────────────────────────────────────
+// REPORTS APP
+// ─────────────────────────────────────────
+
+Table Report {
+  id          int      [pk, increment]
+  user_id     int      [ref: > User.id, not null]
+  fullname    string
+  phone       string
+  category    string   [note: 'ไฟฟ้า | น้ำ | ถนน | บุคคล | เสียง | กลิ่น']
+  description text
+  area        string
+  image       string
+  status      string   [note: 'pending | processing | resolved | canceled']
+  created_at  datetime
+
+  note: 'เรื่องร้องเรียน'
+}
+
+Table ReportNote {
+  id         int      [pk, increment]
+  report_id  int      [ref: > Report.id, not null]
+  text       text
+  created_at datetime
+
+  note: 'หมายเหตุของ admin ต่อเรื่องร้องเรียน'
+}
+
+Table RequestHelp {
+  id             int      [pk, increment]
+  user_id        int      [ref: > User.id]
+  request_type   string   [note: 'เสียง | ปิดทาง | ทั้งสองอย่าง | อื่นๆ']
+  start_datetime datetime
+  end_datetime   datetime
+  detail         text
+  area           string
+  file           string
+  reject_reason  text
+  status         string   [note: 'pending | approved | rejected | done | canceled']
+  created_at     datetime
+  updated_at     datetime
+
+  note: 'ขออนุญาตจัดงาน/ปิดทาง'
+}
+
+Table Appointment {
+  id                int      [pk, increment]
+  user_id           int      [ref: > User.id, not null]
+  meeting_person_id int      [ref: > User.id, null]
+  meet_with         string   [note: 'headman | assistant_headman']
+  meeting_place     string   [note: 'village_hall | temple | headman_office | learning_center']
+  date              date
+  start_time        time
+  end_time          time
+  reason            text
+  status            string   [note: 'pending | approved | canceled | rejected | done']
+  admin_note        text
+  created_at        datetime
+
+  note: 'นัดหมายกับผู้ใหญ่บ้าน/ผู้ช่วย'
+}
+
+// ─────────────────────────────────────────
+// VILLAGE APP
+// ─────────────────────────────────────────
+
+Table Village {
+  id          int     [pk, increment]
+  name        string
+  description text
+  address     text
+  latitude    decimal
+  longitude   decimal
+  updated_at  datetime
+
+  note: 'ข้อมูลหมู่บ้าน'
+}
+
+Table VillageSection {
+  id          int      [pk, increment]
+  type        string   [note: 'RICH | PLACES']
+  title       string
+  content     text
+  description text
+  order       int
+  created_at  datetime
+  updated_at  datetime
+
+  note: 'ส่วนต่างๆ ของหน้าข้อมูลหมู่บ้าน'
+}
+
+Table VillageSectionImage {
+  id         int      [pk, increment]
+  section_id int      [ref: > VillageSection.id, not null]
+  image      string
+  caption    string
+  order      int
+  created_at datetime
+
+  note: 'รูปภาพประกอบแต่ละส่วนของหมู่บ้าน'
+}
+
+Table VillagePlace {
+  id         int    [pk, increment]
+  section_id int    [ref: > VillageSection.id]
+  name       string
+  detail     text
+  order      int
+
+  note: 'สถานที่สำคัญในหมู่บ้าน'
+}
+
+Table VillagePlaceImage {
+  id         int      [pk, increment]
+  place_id   int      [ref: > VillagePlace.id, not null]
+  image      string
+  caption    string
+  order      int
+  created_at datetime
+
+  note: 'รูปภาพของสถานที่สำคัญ'
+}
+
+Table CommunityProfile {
+  id         int     [pk, increment]
+  village_id int     [ref: > Village.id, not null]
+  group      string  [note: 'leader | committee | volunteer']
+  prefix     string
+  position   string
+  level      int
+  full_name  string
+  phone      string
+  email      string
+  description text
+  image      string
+  is_active  boolean
+
+  note: 'คณะกรรมการหมู่บ้าน'
+}
+
+Table FundType {
+  id          int     [pk, increment]
+  village_id  int     [ref: > Village.id, not null]
+  name        string
+  description text
+  is_active   boolean
+
+  note: 'ประเภทกองทุน'
+}
+
+Table FundRecord {
+  id                 int      [pk, increment]
+  fund_type_id       int      [ref: > FundType.id, not null]
+  year               int
+  interest_rate      decimal
+  last_uploaded_file string
+  created_at         datetime
+  updated_at         datetime
+
+  indexes {
+    (fund_type_id, year) [unique]
+  }
+
+  note: 'ข้อมูลกองทุนรายปี'
+}
+
+Table FundLoan {
+  id              int      [pk, increment]
+  fund_record_id  int      [ref: > FundRecord.id, not null]
+  full_name       string
+  bank_account    string
+  loan_amount     decimal
+  interest_amount decimal
+  purpose         text
+  created_at      datetime
+
+  note: 'รายการกู้ยืมในกองทุน'
+}

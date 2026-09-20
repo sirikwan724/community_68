@@ -1,15 +1,16 @@
 <script setup>
 import { ref, onMounted, watch } from "vue";
+import { useRouter } from "vue-router";
 import api from "@/services/api";
 
 /* =========================
    AUTH CHECK
 ========================= */
+const router = useRouter();
 const isLoggedIn = !!localStorage.getItem("access");
 
 if (!isLoggedIn) {
-  // กันเผื่อเข้าหน้านี้ตรง ๆ
-  throw new Error("Unauthorized");
+  router.replace("/login");
 }
 
 /* =========================
@@ -24,33 +25,40 @@ const selectedRecord = ref(null);
 const loans = ref([]);
 
 const loading = ref(false);
+const error = ref("");        
 
 /* =========================
    LOAD
 ========================= */
 const loadFundTypes = async () => {
-  const res = await api.get("/village/funds/");
-  fundTypes.value = res.data;
+  try {
+    const res = await api.get("/village/funds/");
+    fundTypes.value = res.data;
+  } catch {
+    error.value = "ไม่สามารถโหลดข้อมูลกองทุนได้";
+  }
 };
 
 const loadFundRecords = async () => {
   if (!selectedFund.value) return;
-
-  const res = await api.get(
-    `/village/funds/${selectedFund.value.id}/years/`
-  );
-  fundRecords.value = res.data;
-  selectedRecord.value = null;
-  loans.value = [];
+  try {
+    const res = await api.get(`/village/funds/${selectedFund.value.id}/years/`);
+    fundRecords.value = res.data;
+    selectedRecord.value = null;
+    loans.value = [];
+  } catch {
+    error.value = "ไม่สามารถโหลดปีงบประมาณได้";
+  }
 };
 
 const loadLoans = async () => {
   if (!selectedRecord.value) return;
-
-  const res = await api.get(
-    `/village/funds/records/${selectedRecord.value.id}/loans/`
-  );
-  loans.value = res.data;
+  try {
+    const res = await api.get(`/village/funds/records/${selectedRecord.value.id}/loans/`);
+    loans.value = res.data;
+  } catch {
+    error.value = "ไม่สามารถโหลดรายชื่อผู้กู้ได้";
+  }
 };
 
 watch(selectedFund, loadFundRecords);
@@ -63,6 +71,7 @@ onMounted(loadFundTypes);
   <div>
 
     <h2 class="text-xl font-semibold mb-4">กองทุนหมู่บ้าน</h2>
+    <p v-if="error" class="text-red-600 mb-4">{{ error }}</p>
 
     <!-- FUND TYPES -->
     <div class="flex gap-3 mb-6">
@@ -81,21 +90,21 @@ onMounted(loadFundTypes);
 
     <!-- YEARS -->
     <div v-if="selectedFund" class="mb-6">
-      <h3 class="font-medium mb-2">เลือกปีงบประมาณ</h3>
+      <h3 class="font-medium mb-2">เลือกปีเพื่อดูงบประมาณกองทุน</h3>
 
-      <div class="flex gap-2">
-        <button
+      <select
+        v-model="selectedRecord"
+        class="border px-3 py-2 rounded w-52"
+      >
+        <option disabled :value="null">-- เลือกปีเพื่อดู --</option>
+        <option
           v-for="r in fundRecords"
           :key="r.id"
-          @click="selectedRecord = r"
-          class="px-3 py-1 rounded border"
-          :class="selectedRecord?.id === r.id
-            ? 'bg-green-600 text-white'
-            : 'bg-gray-100'"
+          :value="r"
         >
           {{ r.year }}
-        </button>
-      </div>
+        </option>
+      </select>
     </div>
 
     <!-- TABLE -->

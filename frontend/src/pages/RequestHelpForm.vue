@@ -76,7 +76,7 @@ const submitForm = async () => {
       <option value="">-- เลือกประเภท --</option>
       <option value="เสียง">เสียง</option>
       <option value="ปิดทาง">ปิดทาง</option>
-      <option value="ทั้งสองอย่าง">ทั้งสองอย่าง</option>
+      <option value="ทั้งสองอย่าง">ใช้เสียงและปิดทาง</option>
       <option value="อื่นๆ">อื่นๆ</option>
     </select>
 

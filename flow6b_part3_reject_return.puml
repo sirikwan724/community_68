@@ -1,0 +1,133 @@
+@startuml
+scale 2
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam BoxPadding 12
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+
+title Flow 6B (ส่วนที่ 3) — Admin ปฏิเสธ และ ยืนยันคืนคำขอยืม/จอง
+
+actor "Admin" as Admin
+
+box "Frontend (Vue)" #EBF5FB
+    participant "BorrowAdmin\n.vue" as Page
+    participant "BorrowService\n(borrow.service.js)" as Service
+end box
+
+box "Backend (Django REST Framework)" #EAF7EA
+    participant "borrow\n_urls.py" as URLs
+    participant "AdminRejectBorrowView /\nAdminConfirmReturnView\n(views.py)" as View
+    participant "BorrowRequest\n(models.py)" as Model
+end box
+
+database "Database\n(PostgreSQL)" as DB
+
+== Admin เลือกการดำเนินการ ==
+
+alt [Admin กดปฏิเสธ (status = pending)]
+
+    Admin -> Page : กดปุ่ม "ปฏิเสธ"\n→ openRejectModal(b.id)
+    activate Page
+    Page -> Page : showRejectModal = true\nrejectingId = b.id
+
+    Admin -> Page : กรอก rejectNote\nกดปุ่ม "ยืนยันปฏิเสธ"\n→ confirmReject()
+    Page -> Page : ตรวจ rejectNote ว่างไหม\n→ alert "กรุณากรอกเหตุผล"
+
+    Page -> Service : BorrowService.reject(id, note)
+    activate Service
+    Service -> URLs : POST /borrow/admin/{id}/reject/\n{note}
+    activate URLs
+    URLs -> View : route /admin/{pk}/reject/\n→ AdminRejectBorrowView.post()
+    deactivate URLs
+    activate View
+
+    View -> View : ตรวจ role != "admin" → 403
+    View -> View : ตรวจ note ว่างไหม → 400
+
+    View -> Model : BorrowRequest.objects.get(pk=pk)
+    activate Model
+    Model -> DB : SELECT * FROM borrow_borrowrequest\nWHERE id = ?
+    activate DB
+    DB --> Model : borrow object
+    deactivate DB
+    Model --> View : borrow
+    deactivate Model
+
+    View -> Model : borrow.status = "rejected"\nborrow.admin_note = note\nborrow.save()
+    activate Model
+    Model -> DB : UPDATE borrow_borrowrequest\nSET status="rejected",\nadmin_note=note\nWHERE id = ?
+    activate DB
+    DB --> Model : updated
+    deactivate DB
+    Model --> View : saved
+    deactivate Model
+
+    View --> Service : 200 OK\n{"message": "ปฏิเสธแล้ว"}
+    deactivate View
+    Service --> Page : res
+    deactivate Service
+
+    Page -> Page : showRejectModal = false\nloadBorrows()
+    Page --> Admin : ตารางอัปเดตสถานะ "ปฏิเสธ"
+
+else [Admin กดยืนยันคืน (status = return_requested)]
+
+    Admin -> Page : กดปุ่ม "ยืนยันคืน"\n→ confirmReturn(b.id)
+    activate Page
+    Page -> Page : confirm("ยืนยันการคืนของ?")
+
+    Page -> Service : BorrowService.confirmReturn(id)
+    activate Service
+    Service -> URLs : POST /borrow/admin/{id}/confirm-return/
+    activate URLs
+    URLs -> View : route /admin/{pk}/confirm-return/\n→ AdminConfirmReturnView.post()
+    deactivate URLs
+    activate View
+
+    View -> View : ตรวจ role != "admin" → 403
+    View -> View : ตรวจ status != "return_requested" → 400
+
+    View -> Model : BorrowRequest.objects.get(pk=pk)
+    activate Model
+    Model -> DB : SELECT * FROM borrow_borrowrequest\nWHERE id = ?
+    activate DB
+    DB --> Model : borrow object
+    deactivate DB
+    Model --> View : borrow
+    deactivate Model
+
+    View -> View : transaction.atomic()
+
+    opt [borrow_type = "ITEM"]
+        View -> DB : UPDATE borrow_item\nSET stock = stock + qty\nWHERE id = ?
+        activate DB
+        DB --> View : updated
+        deactivate DB
+    end
+
+    View -> Model : borrow.status = "returned"\nborrow.save()
+    activate Model
+    Model -> DB : UPDATE borrow_borrowrequest\nSET status="returned"\nWHERE id = ?
+    activate DB
+    DB --> Model : updated
+    deactivate DB
+    Model --> View : saved
+    deactivate Model
+
+    View --> Service : 200 OK\n{"message": "ยืนยันคืนแล้ว"}
+    deactivate View
+    Service --> Page : res
+    deactivate Service
+
+    Page -> Page : loadBorrows()
+    Page --> Admin : ตารางอัปเดตสถานะ "คืนแล้ว"
+
+end
+
+deactivate Page
+
+@enduml

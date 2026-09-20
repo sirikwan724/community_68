@@ -1,0 +1,238 @@
+@startuml
+scale 2
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam BoxPadding 12
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+
+title Flow 7B — Admin จัดการรายงานปัญหาบริการสาธารณะ
+
+actor "Admin" as Admin
+
+box "Frontend (Vue)" #EBF5FB
+    participant "AdminServiceReports\n.vue" as Page
+end box
+
+box "Backend (Django REST Framework)" #EAF7EA
+    participant "publicservice\n_urls.py" as URLs
+    participant "AdminPublicServiceReportsView /\nAdminUpdatePublicServiceReportStatusView\n(views.py)" as View
+    participant "PublicServiceReport /\nPublicService\n(models.py)" as Model
+end box
+
+database "Database\n(PostgreSQL)" as DB
+
+== โหลดรายการรายงาน (onMounted) ==
+
+Admin -> Page : เข้าหน้าจัดการ\nรายงานปัญหาบริการ
+activate Page
+Page -> Page : onMounted()\n→ fetchReports()
+
+Page -> URLs : api.get("/services/reports/admin/")
+activate URLs
+URLs -> View : route /reports/admin/\n→ AdminPublicServiceReportsView.get()
+deactivate URLs
+activate View
+
+View -> View : ตรวจสอบสิทธิ์\nIsAuthenticated
+
+View -> Model : PublicServiceReport.objects\n.select_related("service","user")\n.all().order_by("-created_at")
+activate Model
+Model -> DB : SELECT * FROM\npublicservice_publicservicereport\nJOIN publicservice, user\nORDER BY created_at DESC
+activate DB
+DB --> Model : list of reports
+deactivate DB
+Model --> View : queryset
+deactivate Model
+
+View --> Page : 200 OK\n[{id, title, status,\nservice_category, service_name,\nservice_location, user_full_name,...}]
+deactivate View
+
+Page -> Page : reports = res.data
+Page --> Admin : แสดงตารางรายงาน\n(pending / processing /\nresolved / canceled)
+
+== Admin เปิดดูรายละเอียด ==
+
+Admin -> Page : คลิก "ดูรายละเอียด"\n→ openDetail(r)
+Page -> Page : selectedReport = r\n(เปิด Modal จาก local state)
+Page --> Admin : แสดง Modal\n(title, description, image,\nstatus, วันที่แจ้ง, ผู้แจ้ง)
+
+== Admin ดูข้อมูลผู้แจ้ง ==
+
+Admin -> Page : คลิกชื่อผู้แจ้ง\n→ toggleUserDetail()
+
+Page -> URLs : api.get("/accounts/admin/users/")
+activate URLs
+URLs -> View : route /accounts/admin/users/\n→ AdminUserListView.get()
+deactivate URLs
+activate View
+View -> DB : SELECT * FROM accounts_userprofile
+activate DB
+DB --> View : list of users
+deactivate DB
+View --> Page : 200 OK [{id, full_name, phone, address,...}]
+deactivate View
+
+Page -> Page : userDetail =\nres.data.find(\nu => u.id === selectedReport.user_id)
+Page -> Page : showUserDetail = true
+Page --> Admin : แสดงรายละเอียดผู้แจ้ง\n(full_name, phone, address, citizen_id)
+
+== Admin อัปเดตสถานะ ==
+
+alt [Admin กดรับเรื่อง (pending → processing)]
+
+    Admin -> Page : กดปุ่ม "รับเรื่อง"\n→ updateStatus(id, "processing")
+
+    Page -> URLs : api.patch(\n"/services/reports/{id}/status/",\n{status: "processing"})
+    activate URLs
+    URLs -> View : route /reports/{pk}/status/\n→ AdminUpdatePublicServiceReportStatusView.patch()
+    deactivate URLs
+    activate View
+
+    View -> View : ตรวจ status IN\n["resolved","canceled"] → 400
+    View -> View : ตรวจ new_status ถูกต้องไหม
+
+    View -> Model : PublicServiceReport.objects.get(pk=pk)
+    activate Model
+    Model -> DB : SELECT * FROM\npublicservice_publicservicereport\nWHERE id = ?
+    activate DB
+    DB --> Model : report object
+    deactivate DB
+    Model --> View : report
+    deactivate Model
+
+    View -> View : transaction.atomic()
+
+    View -> Model : report.status = "processing"\nreport.save(update_fields=["status"])
+    activate Model
+    Model -> DB : UPDATE publicservice_publicservicereport\nSET status="processing"\nWHERE id = ?
+    activate DB
+    DB --> Model : updated
+    deactivate DB
+    Model --> View : saved
+    deactivate Model
+
+    View -> Model : service.status = "maintenance"\nservice.save(update_fields=["status"])
+    activate Model
+    Model -> DB : UPDATE publicservice_publicservice\nSET status="maintenance"\nWHERE id = ?
+    activate DB
+    DB --> Model : updated
+    deactivate DB
+    Model --> View : saved
+    deactivate Model
+
+    View --> Page : 200 OK {report data}
+    deactivate View
+
+    Page -> Page : fetchReports()\nupdate selectedReport
+    Page --> Admin : ตารางและ Modal\nอัปเดตสถานะ "กำลังดำเนินการ"
+
+else [Admin กดดำเนินการเสร็จสิ้น (processing → resolved)]
+
+    Admin -> Page : กดปุ่ม "ดำเนินการเสร็จสิ้น"\n→ updateStatus(id, "resolved")
+
+    Page -> URLs : api.patch(\n"/services/reports/{id}/status/",\n{status: "resolved"})
+    activate URLs
+    URLs -> View : route /reports/{pk}/status/\n→ AdminUpdatePublicServiceReportStatusView.patch()
+    deactivate URLs
+    activate View
+
+    View -> View : ตรวจ status IN\n["resolved","canceled"] → 400
+
+    View -> Model : PublicServiceReport.objects.get(pk=pk)
+    activate Model
+    Model -> DB : SELECT * FROM\npublicservice_publicservicereport\nWHERE id = ?
+    activate DB
+    DB --> Model : report object
+    deactivate DB
+    Model --> View : report
+    deactivate Model
+
+    View -> View : transaction.atomic()
+
+    View -> Model : report.status = "resolved"\nreport.save(update_fields=["status"])
+    activate Model
+    Model -> DB : UPDATE publicservice_publicservicereport\nSET status="resolved"\nWHERE id = ?
+    activate DB
+    DB --> Model : updated
+    deactivate DB
+    Model --> View : saved
+    deactivate Model
+
+    View -> DB : SELECT EXISTS\nFROM publicservice_publicservicereport\nWHERE service=? AND status NOT IN\n("resolved","canceled")
+    activate DB
+    DB --> View : has_open_reports
+    deactivate DB
+
+    alt [ยังมีรายงานค้างอยู่]
+        View -> Model : service.status = "maintenance"\nservice.save()
+        activate Model
+        Model -> DB : UPDATE publicservice_publicservice\nSET status="maintenance"\nWHERE id = ?
+        activate DB
+        DB --> Model : updated
+        deactivate DB
+        Model --> View : saved
+        deactivate Model
+    else [ไม่มีรายงานค้างแล้ว]
+        View -> Model : service.status = "normal"\nservice.save()
+        activate Model
+        Model -> DB : UPDATE publicservice_publicservice\nSET status="normal"\nWHERE id = ?
+        activate DB
+        DB --> Model : updated
+        deactivate DB
+        Model --> View : saved
+        deactivate Model
+    end
+
+    View --> Page : 200 OK {report data}
+    deactivate View
+
+    Page -> Page : fetchReports()\nupdate selectedReport
+    Page --> Admin : ตารางและ Modal\nอัปเดตสถานะ "เสร็จสิ้น"
+
+else [Admin กดรายงานไม่ถูกต้อง (→ canceled)]
+
+    Admin -> Page : กดปุ่ม "รายงานไม่ถูกต้อง"\n→ updateStatus(id, "canceled")
+
+    Page -> URLs : api.patch(\n"/services/reports/{id}/status/",\n{status: "canceled"})
+    activate URLs
+    URLs -> View : route /reports/{pk}/status/\n→ AdminUpdatePublicServiceReportStatusView.patch()
+    deactivate URLs
+    activate View
+
+    View -> View : ตรวจ status IN\n["resolved","canceled"] → 400
+
+    View -> Model : PublicServiceReport.objects.get(pk=pk)
+    activate Model
+    Model -> DB : SELECT * FROM\npublicservice_publicservicereport\nWHERE id = ?
+    activate DB
+    DB --> Model : report object
+    deactivate DB
+    Model --> View : report
+    deactivate Model
+
+    View -> View : transaction.atomic()
+
+    View -> Model : report.status = "canceled"\nreport.save(update_fields=["status"])
+    activate Model
+    Model -> DB : UPDATE publicservice_publicservicereport\nSET status="canceled"\nWHERE id = ?
+    activate DB
+    DB --> Model : updated
+    deactivate DB
+    Model --> View : saved
+    deactivate Model
+
+    View --> Page : 200 OK {report data}
+    deactivate View
+
+    Page -> Page : fetchReports()\nupdate selectedReport
+    Page --> Admin : ตารางและ Modal\nอัปเดตสถานะ "รายงานไม่ถูกต้อง"
+
+end
+
+deactivate Page
+
+@enduml

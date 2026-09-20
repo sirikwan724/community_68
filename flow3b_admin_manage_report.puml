@@ -1,0 +1,200 @@
+@startuml
+scale 2
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam BoxPadding 12
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+
+title Flow 3B — Admin จัดการรายงานปัญหา
+
+actor "Admin" as Admin
+
+box "Frontend (Vue)" #EBF5FB
+    participant "AdminReports\n.vue" as Page
+    participant "ReportDetail\nModal.vue" as Modal
+end box
+
+box "Backend (Django REST Framework)" #EAF7EA
+    participant "reports\n/urls.py" as URLs
+    participant "admin_list_reports /\nreport_detail /\nreport_accept /\nreport_add_note /\nreport_done /\nreport_rollback\n(views.py)" as View
+    participant "Report\n(models.py)" as RepModel
+    participant "ReportNote\n(models.py)" as NoteModel
+end box
+
+database "Database\n(PostgreSQL)" as DB
+
+== โหลดรายการรายงาน (onMounted) ==
+
+Admin -> Page : เข้าหน้าจัดการรายงาน
+activate Page
+
+Page -> Page : onMounted()\n→ loadReports()
+
+Page -> URLs : api.get("/reports/admin-all/")
+activate URLs
+
+URLs -> View : route /admin-all/\n→ admin_list_reports()
+deactivate URLs
+activate View
+
+View -> View : ตรวจ role != "admin" → 403
+
+View -> RepModel : Report.objects.all()\n.order_by("-created_at")
+activate RepModel
+RepModel -> DB : SELECT * FROM reports_report\nORDER BY created_at DESC
+activate DB
+DB --> RepModel : list of reports
+deactivate DB
+RepModel --> View : queryset
+deactivate RepModel
+
+View --> Page : 200 OK\n[{id, category, area,\nuser_data, status,\ncreated_at, notes, ...}]
+deactivate View
+
+Page --> Admin : แสดงตารางรายการรายงาน\nพร้อมสถานะ pending / processing / resolved
+
+== Admin เปิดดูรายละเอียดและอัปเดตสถานะ ==
+
+Admin -> Page : คลิก "ดูรายละเอียด"\n→ openDetail(r)
+Page -> Modal : เปิด ReportDetailModal\nส่ง report object
+activate Modal
+
+Modal -> Modal : watch(report)\n→ loadReportDetail()
+
+Modal -> URLs : axios.get(\n"/api/reports/{id}/",\n{headers: {Authorization: Bearer token}})
+activate URLs
+URLs -> View : route /{pk}/\n→ report_detail()
+deactivate URLs
+activate View
+
+View -> RepModel : Report.objects.get(pk=pk)
+activate RepModel
+RepModel -> DB : SELECT * FROM reports_report\nWHERE id = ?
+activate DB
+DB --> RepModel : report + notes
+deactivate DB
+RepModel --> View : report object
+deactivate RepModel
+
+View --> Modal : 200 OK\n{id, category, description, area,\nstatus, notes[...], user_data{...}}
+deactivate View
+
+Modal --> Admin : แสดงรายละเอียด\n+ ประวัติโน้ต + เลือกการดำเนินการ
+
+== Admin เลือกการดำเนินการ ==
+
+alt [รับเรื่อง (status = pending)]
+
+    Admin -> Modal : เลือก "รับเรื่อง"\nกรอก noteText → บันทึก
+    Modal -> URLs : axios.patch(\n"/api/reports/{id}/accept/",\n{}, {headers: {Authorization: Bearer token}})
+    activate URLs
+    URLs -> View : route /{pk}/accept/\n→ report_accept()
+    deactivate URLs
+    activate View
+    View -> RepModel : report.status = "processing"\nreport.save()
+    activate RepModel
+    RepModel -> DB : UPDATE reports_report\nSET status="processing"\nWHERE id = ?
+    activate DB
+    DB --> RepModel : updated
+    deactivate DB
+    RepModel --> View : saved
+    deactivate RepModel
+    View --> Modal : 200 OK\n{"message": "รับเรื่องแล้ว"}
+    deactivate View
+
+else [เพิ่มบันทึก (status = processing)]
+
+    Admin -> Modal : เลือก "เพิ่มบันทึก"\nกรอก noteText → บันทึก
+    Modal -> URLs : axios.post(\n"/api/reports/{id}/add-note/",\n{message: noteText},\n{headers: {Authorization: Bearer token}})
+    activate URLs
+    URLs -> View : route /{pk}/add-note/\n→ report_add_note()
+    deactivate URLs
+    activate View
+    View -> NoteModel : ReportNote.objects.create(\nreport=report, text=message)
+    activate NoteModel
+    NoteModel -> DB : INSERT INTO reports_reportnote\n(report_id, text)
+    activate DB
+    DB --> NoteModel : note.id
+    deactivate DB
+    NoteModel --> View : note object
+    deactivate NoteModel
+    View --> Modal : 200 OK\n{"message": "เพิ่มโน้ตแล้ว", "note": {...}}
+    deactivate View
+
+else [ดำเนินการเสร็จสิ้น (status = processing)]
+
+    Admin -> Modal : เลือก "ดำเนินการเสร็จสิ้น"\nกรอก noteText → บันทึก
+    Modal -> URLs : axios.patch(\n"/api/reports/{id}/done/",\n{message: noteText},\n{headers: {Authorization: Bearer token}})
+    activate URLs
+    URLs -> View : route /{pk}/done/\n→ report_done()
+    deactivate URLs
+    activate View
+    View -> RepModel : report.status = "resolved"\nreport.save()
+    activate RepModel
+    RepModel -> DB : UPDATE reports_report\nSET status="resolved"\nWHERE id = ?
+    activate DB
+    DB --> RepModel : updated
+    deactivate DB
+    RepModel --> View : saved
+    deactivate RepModel
+    View -> NoteModel : ReportNote.objects.create(\nreport=report, text=message)
+    activate NoteModel
+    NoteModel -> DB : INSERT INTO reports_reportnote\n(report_id, text)
+    activate DB
+    DB --> NoteModel : note.id
+    deactivate DB
+    NoteModel --> View : note object
+    deactivate NoteModel
+    View --> Modal : 200 OK\n{"message": "อัปเดตสถานะแล้วเสร็จ"}
+    deactivate View
+
+else [ย้อนกลับสถานะ (status = resolved)]
+
+    Admin -> Modal : เลือก "ย้อนกลับสถานะ"\n→ บันทึก
+    Modal -> URLs : axios.patch(\n"/api/reports/{id}/rollback/",\n{}, {headers: {Authorization: Bearer token}})
+    activate URLs
+    URLs -> View : route /{pk}/rollback/\n→ report_rollback()
+    deactivate URLs
+    activate View
+    View -> RepModel : report.status = "processing"\nreport.save()
+    activate RepModel
+    RepModel -> DB : UPDATE reports_report\nSET status="processing"\nWHERE id = ?
+    activate DB
+    DB --> RepModel : updated
+    deactivate DB
+    RepModel --> View : saved
+    deactivate RepModel
+    View --> Modal : 200 OK\n{"message": "ย้อนกลับสถานะเป็นกำลังดำเนินการ"}
+    deactivate View
+
+end
+
+Modal -> Modal : alert "อัปเดตสำเร็จ"
+Modal -> Page : emit("updated")\n→ loadReports()
+Modal -> Page : emit("close")\n→ selectedReport = null
+deactivate Modal
+
+Page -> URLs : api.get("/reports/admin-all/")
+activate URLs
+URLs -> View : admin_list_reports()
+activate View
+View -> RepModel : Report.objects.all()
+activate RepModel
+RepModel -> DB : SELECT * FROM reports_report
+activate DB
+DB --> RepModel : updated list
+deactivate DB
+RepModel --> View : queryset
+deactivate RepModel
+View --> Page : 200 OK [updated list]
+deactivate View
+deactivate URLs
+Page --> Admin : ตารางอัปเดตสถานะใหม่
+
+deactivate Page
+
+@enduml

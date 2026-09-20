@@ -1,0 +1,100 @@
+@startuml
+scale 2
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam BoxPadding 12
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+
+title Flow 6C — User แจ้งคืนของ/สถานที่
+
+actor "ผู้ใช้งาน\n(User)" as User
+
+box "Frontend (Vue)" #EBF5FB
+    participant "MyHistory\n.vue" as Page
+end box
+
+box "Backend (Django REST Framework)" #EAF7EA
+    participant "borrow\n/urls.py" as URLs
+    participant "RequestReturnView /\nMyBorrowRequestListView\n(views.py)" as View
+    participant "BorrowRequest\n(models.py)" as Model
+end box
+
+database "Database\n(PostgreSQL)" as DB
+
+== โหลดประวัติการยืม (onMounted) ==
+
+User -> Page : เข้าหน้าประวัติของฉัน\n(แท็บ การยืม/จอง)
+activate Page
+Page -> Page : onMounted()\n→ loadBorrows()
+
+Page -> URLs : api.get("/borrow/my/")
+activate URLs
+URLs -> View : route /my/\n→ MyBorrowRequestListView
+deactivate URLs
+activate View
+
+View -> Model : BorrowRequest.objects.filter(\nuser=request.user)\n.order_by('-created_at')
+activate Model
+Model -> DB : SELECT * FROM borrow_borrowrequest\nWHERE user_id = ?\nORDER BY created_at DESC
+activate DB
+DB --> Model : list of borrows
+deactivate DB
+Model --> View : queryset
+deactivate Model
+
+View --> Page : 200 OK\n[{id, borrow_type, status,\nitems, location_name,...}]
+deactivate View
+
+Page -> Page : borrows.value = res.data\n→ mergeAll()
+Page --> User : แสดงรายการยืม/จอง\nสถานะ "อนุมัติแล้ว" แสดงปุ่ม "แจ้งคืน"
+
+== User กดแจ้งคืน ==
+
+User -> Page : กดปุ่ม "แจ้งคืน"\n→ requestReturn(id)
+Page -> Page : confirm(\n"ยืนยันการแจ้งคืนหรือไม่?")
+
+opt [ยืนยัน]
+
+    Page -> URLs : api.post(\n"/borrow/{id}/request-return/", {})
+    activate URLs
+    URLs -> View : route /{pk}/request-return/\n→ RequestReturnView.post()
+    deactivate URLs
+    activate View
+
+    View -> Model : get_object_or_404(\nBorrowRequest,\npk=pk, user=request.user)
+    activate Model
+    Model -> DB : SELECT * FROM borrow_borrowrequest\nWHERE id=? AND user_id=?
+    activate DB
+    DB --> Model : borrow object
+    deactivate DB
+    Model --> View : borrow
+    deactivate Model
+
+    View -> View : ตรวจสอบ\nborrow.status != "approved"\n→ 400 Bad Request
+
+    View -> Model : borrow.status = "return_requested"\nborrow.save()
+    activate Model
+    Model -> DB : UPDATE borrow_borrowrequest\nSET status="return_requested"\nWHERE id=?
+    activate DB
+    DB --> Model : updated
+    deactivate DB
+    Model --> View : saved
+    deactivate Model
+
+    View --> Page : 200 OK\n{"message": "แจ้งคืนเรียบร้อย\nรอแอดมินตรวจสอบ"}
+    deactivate View
+
+    Page --> User : alert "แจ้งคืนเรียบร้อย\nรอแอดมินตรวจสอบ"
+
+    Page -> Page : loadBorrows()\n→ mergeAll()
+    Page --> User : รายการอัปเดตสถานะ\n"แจ้งคืนแล้ว"
+
+end
+
+deactivate Page
+
+@enduml

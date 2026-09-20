@@ -1,0 +1,105 @@
+@startuml
+scale 2
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam BoxPadding 12
+skinparam defaultFontSize 12
+skinparam defaultFontName Tahoma
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 5
+
+title Flow 8B — Admin จัดการรายการข่าวสาร (โหลด + ลบ)
+
+actor "Admin" as Admin
+
+box "Frontend (Vue)" #EBF5FB
+    participant "AdminNewsList\n.vue" as Page
+end box
+
+box "Backend (Django REST Framework)" #EAF7EA
+    participant "accounts\n_urls.py" as URLs
+    participant "NewsViewSet\n(views.py)" as View
+    participant "News\n(models.py)" as Model
+end box
+
+database "Database\n(PostgreSQL)" as DB
+
+== โหลดรายการข่าวสาร (onMounted) ==
+
+Admin -> Page : เข้าหน้าจัดการข่าวสาร
+activate Page
+Page -> Page : onMounted()\n→ fetchAllNews()
+
+Page -> URLs : axios.get(\n"/api/accounts/news/")
+activate URLs
+URLs -> View : router.urls → news/\n→ NewsViewSet.list()
+deactivate URLs
+activate View
+
+View -> View : get_permissions()\n→ SAFE_METHODS → AllowAny
+
+View -> Model : News.objects.all()
+activate Model
+Model -> DB : SELECT * FROM accounts_news\nORDER BY created_at DESC
+activate DB
+DB --> Model : list of news
+deactivate DB
+Model --> View : queryset
+deactivate Model
+
+View --> Page : 200 OK\n[{id, title, created_at_formatted,...}]
+deactivate View
+
+Page -> Page : newsList.value = res.data
+Page --> Admin : แสดงตารางรายการข่าวสาร\n(ID, หัวข้อ, วันที่เผยแพร่, ปุ่มจัดการ)
+
+== Admin ลบข่าวสาร ==
+
+Admin -> Page : กดปุ่ม "ลบ"\n→ deleteNews(newsId)
+Page -> Page : confirm("ยืนยันการลบ?")\nlocalStorage.getItem("access")
+
+Page -> URLs : axios.delete(\n"/api/accounts/news/{newsId}/",\n{Authorization: Bearer token})
+activate URLs
+URLs -> View : router.urls → news/{pk}/\n→ NewsViewSet.destroy()
+deactivate URLs
+activate View
+
+View -> View : get_permissions()\n→ DELETE → IsAdminUser
+
+View -> Model : News.objects.get(pk=pk)
+activate Model
+Model -> DB : SELECT * FROM accounts_news\nWHERE id = ?
+activate DB
+DB --> Model : news object
+deactivate DB
+Model --> View : news
+deactivate Model
+
+View -> DB : DELETE FROM accounts_news\nWHERE id = ?
+activate DB
+DB --> View : deleted
+deactivate DB
+
+View --> Page : 204 No Content
+deactivate View
+
+Page -> Page : successMessage = "ลบข่าวสารสำเร็จ"\nfetchAllNews()
+Page --> Admin : ตารางอัปเดต\n(ข่าวสารถูกลบออก)
+
+== Admin นำทางไปหน้าอื่น ==
+
+alt [กดปุ่ม "+ สร้างข่าวสารใหม่"]
+    Admin -> Page : กดปุ่ม "+ สร้างข่าวสารใหม่"\n→ goToCreateNews()
+    Page -> Page : router.push("/admin/news/create")
+    Page --> Admin : นำทางไปหน้าสร้างข่าวสาร
+
+else [กดปุ่ม "แก้ไข"]
+    Admin -> Page : กดปุ่ม "แก้ไข"\n→ editNews(newsId)
+    Page -> Page : router.push(\n"/admin/news/{newsId}/edit")
+    Page --> Admin : นำทางไปหน้าแก้ไขข่าวสาร
+end
+
+deactivate Page
+
+@enduml
