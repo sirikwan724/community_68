@@ -39,3 +39,5 @@ backend/.env
 settings.local.json
 .claude
 plantuml.jar
+
+*.puml
